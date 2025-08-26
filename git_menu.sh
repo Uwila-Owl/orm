@@ -169,7 +169,7 @@ main() {
                wait_for_user
                ;;
             5) 
-                git push --set-upstream origin Test  
+                git push -u origin Test  
                 wait_for_user
                 ;;
             0)
