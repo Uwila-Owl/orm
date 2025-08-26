@@ -1,13 +1,8 @@
 #!/bin/bash
 
-# Menu principal pour la gestion du projet GenerateurUML
-# Permet de lancer facilement la compilation, création JAR et exécution
-
 # Dépôt Git ciblé
 GIT_REPO="git@github.com:Uwila-Owl/orm.git"
-GIT_DIR="orm"
-
-
+DEFAULT_GIT_DIR="orm"
 
 # Couleurs pour l'affichage
 RED='\033[0;31m'
@@ -17,13 +12,28 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Vérification du dépôt local
-ensure_repo() {
+# Fonction pour le clonage avec choix du dossier seulement la première fois
+clone_repo_if_needed() {
     if [ ! -d "$GIT_DIR/.git" ]; then
-        echo -e "${YELLOW}⚠ Dépôt local absent. Clonage depuis GitHub...${NC}"
-        git clone "$GIT_REPO" "$GIT_DIR"
+        echo -e "${CYAN}Le dépôt local n'existe pas.${NC}"
+        echo "Voulez-vous :"
+        echo "1) Cloner dans le dossier courant"
+        echo "2) Cloner dans un nouveau dossier (par défaut: '$DEFAULT_GIT_DIR')"
+        echo -n "Votre choix [1-2] : "
+        read dir_choice
+
+        if [ "$dir_choice" = "1" ]; then
+            GIT_DIR="."
+        else
+            echo -n "Nom du dossier (laisser vide pour '$DEFAULT_GIT_DIR') : "
+            read input_dir
+            GIT_DIR="${input_dir:-$DEFAULT_GIT_DIR}"
+        fi
+
+        git clone "$GIT_REPO" "$GIT_DIR" || { echo -e "${RED}❌ Clonage échoué !${NC}"; exit 1; }
+    else
+        echo -e "${GREEN}✅ Dépôt déjà cloné en local dans '$GIT_DIR'.${NC}"
     fi
-    cd "$GIT_DIR" || exit 1
 }
 
 # Fonction pour afficher le titre
@@ -42,8 +52,6 @@ show_git_status() {
     echo -e "${YELLOW}📊 État Git:${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-    # Vérification dépôt local
-    echo -e "${YELLOW}📂 Vérification dépôt local:${NC}"
     if [ -d "$GIT_DIR/.git" ]; then
         echo -e "   ${GREEN}✅${NC} Dépôt '${GIT_DIR}' présent en local"
     else
@@ -53,11 +61,10 @@ show_git_status() {
         return
     fi
 
-    # Récupérer infos locales
     pushd "$GIT_DIR" >/dev/null || return
 
     BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-    git fetch --quiet  # met à jour l'état distant sans rien modifier
+    git fetch --quiet
 
     LOCAL=$(git rev-parse @ 2>/dev/null)
     REMOTE=$(git rev-parse "@{u}" 2>/dev/null)
@@ -79,8 +86,6 @@ show_git_status() {
     echo
 }
 
-
-# Fonction pour afficher le menu
 # Fonction pour afficher le menu Git
 show_git_menu() {
     echo -e "${YELLOW}🔧 Actions disponibles:${NC}"
@@ -146,14 +151,9 @@ main() {
         
         case $choice in
             1) 
-                if [ ! -d "$GIT_DIR/.git" ]; then
-                    git clone "$GIT_REPO" "$GIT_DIR" || { echo -e "${RED}❌ Clonage échoué !${NC}"; wait_for_user; break; }
-                else
-                    echo -e "${GREEN}✅ Le dépôt est déjà cloné.${NC}"
-                fi
+                clone_repo_if_needed
                 wait_for_user
                 ;;
-
             2) 
                 git fetch && git checkout Test && git pull origin Test 
                 wait_for_user
@@ -173,8 +173,8 @@ main() {
                 wait_for_user
                 ;;
             0)
-                execute_script "menu.sh" "Retour au Menu Principal"
-                exit 0
+                echo -e "${GREEN}⬅ Retour au menu principal...${NC}"
+                return 0
                 ;;
             *) 
                 echo -e "${RED}❌ Choix invalide. Veuillez entrer un nombre entre 0 et 5.${NC}"
@@ -185,4 +185,5 @@ main() {
 }
 
 # Point d'entrée du script
+GIT_DIR="$DEFAULT_GIT_DIR"
 main "$@"
