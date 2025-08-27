@@ -24,8 +24,35 @@ show_title() {
 
 # Fonction pour afficher l'état des fichiers
 show_status() {
-    echo -e "${YELLOW}📊 État actuel du projet:${NC}"
+    echo -e "${BLUE}📊 État actuel du projet:${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Vérification de la version client
+    if [ -d "./End_User_UMLGen" ]; then
+        TAR_COUNT=$(find ./End_User_UMLGen -name "*.tar.gz" -type f 2>/dev/null | wc -l)
+        if [ $TAR_COUNT -gt 0 ]; then
+            TAR_FILE=$(find ./End_User_UMLGen -name "*.tar.gz" -type f 2>/dev/null | head -1)
+            TAR_SIZE=$(ls -lh "$TAR_FILE" | awk '{print $5}')
+            TAR_NAME=$(basename "$TAR_FILE")
+            echo -e "   ${GREEN}✓${NC} Version client: $TAR_NAME ($TAR_SIZE)"
+        else
+            echo -e "   ${YELLOW}⚠${NC} Version client: Dossier présent mais aucune archive"
+        fi
+    else
+        echo -e "   ${YELLOW}⚠${NC} Version client: Aucune version générée"
+    fi
+    
+    # Vérification des scripts utilisateur
+    if [ -d "./Script_EU" ]; then
+        SCRIPT_COUNT=$(find ./Script_EU -name "*.sh" -type f 2>/dev/null | wc -l)
+        if [ $SCRIPT_COUNT -gt 0 ]; then
+            echo -e "   ${GREEN}✓${NC} Scripts utilisateur final: $SCRIPT_COUNT fichiers dans /Script_EU"
+        else
+            echo -e "   ${YELLOW}⚠${NC} Scripts utilisateur final: Dossier présent mais aucun script"
+        fi
+    else
+        echo -e "   ${YELLOW}⚠${NC} Scripts utilisateur final: Dossier /Script_EU manquant"
+    fi
     
     # Vérification de Java
     if command -v java >/dev/null 2>&1; then
@@ -93,6 +120,9 @@ show_menu() {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo -e "   ${CYAN}4.${NC} ⚡ Workflow complet (1 → 2 → 3)"
     echo -e "   ${CYAN}5.${NC} 🧹 Purger le projet (nettoyer Class + JAR)"
+    echo -e "   ${CYAN}6.${NC} 📦 Générer package client (create_client.sh)"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "   ${CYAN}7.${NC} 🗑️ Purge avancée (+ version client)"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo -e "   ${CYAN}9.${NC} 📊 Rafraîchir l'état"
     echo -e "   ${CYAN}0.${NC} ❌ Quitter"
@@ -204,6 +234,57 @@ main() {
                 fi
                 
                 echo -e "${GREEN}🧹 Purge terminée! Projet remis à zéro.${NC}"
+                wait_for_user
+                ;;
+            6)
+                execute_script "create_client.sh" "Génération du package client"
+                wait_for_user
+                ;;
+            7)
+                echo -e "${BLUE}🗑️ Purge avancée du projet...${NC}"
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                
+                # Suppression des fichiers .class
+                if [ -d "./Class" ]; then
+                    CLASS_COUNT_BEFORE=$(find ./Class -name "*.class" -type f 2>/dev/null | wc -l)
+                    if [ $CLASS_COUNT_BEFORE -gt 0 ]; then
+                        find ./Class -name "*.class" -type f -delete
+                        echo -e "   ${GREEN}✓${NC} ${CLASS_COUNT_BEFORE} fichiers .class supprimés du dossier /Class"
+                    else
+                        echo -e "   ${YELLOW}ℹ${NC} Aucun fichier .class à supprimer dans /Class"
+                    fi
+                else
+                    echo -e "   ${YELLOW}ℹ${NC} Dossier /Class inexistant"
+                fi
+                
+                # Suppression du JAR
+                if [ -f "GenerateurUML.jar" ]; then
+                    rm "GenerateurUML.jar"
+                    echo -e "   ${GREEN}✓${NC} GenerateurUML.jar supprimé"
+                else
+                    echo -e "   ${YELLOW}ℹ${NC} GenerateurUML.jar déjà absent"
+                fi
+                
+                # Suppression des archives client
+                if [ -d "./End_User_UMLGen" ]; then
+                    TAR_COUNT_BEFORE=$(find ./End_User_UMLGen -name "*.tar.gz" -type f 2>/dev/null | wc -l)
+                    if [ $TAR_COUNT_BEFORE -gt 0 ]; then
+                        find ./End_User_UMLGen -name "*.tar.gz" -type f -delete
+                        echo -e "   ${GREEN}✓${NC} ${TAR_COUNT_BEFORE} archive(s) client supprimée(s)"
+                    else
+                        echo -e "   ${YELLOW}ℹ${NC} Aucune archive client à supprimer"
+                    fi
+                    
+                    # Suppression du dossier s'il est vide
+                    if [ -z "$(ls -A ./End_User_UMLGen 2>/dev/null)" ]; then
+                        rmdir ./End_User_UMLGen
+                        echo -e "   ${GREEN}✓${NC} Dossier End_User_UMLGen vide supprimé"
+                    fi
+                else
+                    echo -e "   ${YELLOW}ℹ${NC} Dossier End_User_UMLGen déjà absent"
+                fi
+                
+                echo -e "${GREEN}🗑️ Purge avancée terminée! Projet complètement remis à zéro.${NC}"
                 wait_for_user
                 ;;
             9)
