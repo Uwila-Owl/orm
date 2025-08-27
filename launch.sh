@@ -6,7 +6,7 @@
 echo "=== Lancement de GenerateurUML ==="
 
 # Définition des chemins
-JAVAFX_LIB_DIR="./JavaFX_Lib"
+JAVAFX_LIB_DIR="./JavaFX_Lib/Lnx/lib"
 EXT_DRIVER_DIR="./Ext_Driver"
 JAR_NAME="GenerateurUML.jar"
 MAIN_CLASS="InterfaceGenerateurUML"
