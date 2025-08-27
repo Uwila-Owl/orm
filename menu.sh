@@ -17,7 +17,7 @@ show_title() {
     echo -e "${CYAN}╔══════════════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║              🚀 GENERATEUR UML - MENU PRINCIPAL          ║${NC}"
     echo -e "${CYAN}╠══════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${CYAN}║                    Projet ORM Manager                    ║${NC}"
+    echo -e "${CYAN}║                    Projet ORM Manager v8                 ║${NC}"
     echo -e "${CYAN}╚══════════════════════════════════════════════════════════╝${NC}"
     echo
 }
