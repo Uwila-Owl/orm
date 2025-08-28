@@ -20,7 +20,7 @@ TEMP_DIR="$CLIENT_DIR/UMLGen"
 JAR_FILE="GenerateurUML.jar"
 JAVAFX_LIB_DIR="./JavaFX_Lib"
 EXT_DRIVER_DIR="./Ext_Driver"
-START_SCRIPT_SOURCE="./Script_EU/Start.sh"
+SCRIPT_EU_DIR="./Script_EU"
 ARCHIVE_NAME="UMLGen_Client.tar.gz"
 
 # Vérifications préalables
@@ -36,12 +36,12 @@ fi
 echo -e "   ${GREEN}✓${NC} JAR principal: $JAR_FILE trouvé"
 
 # Vérification du script Start.sh source
-if [ ! -f "$START_SCRIPT_SOURCE" ]; then
-    echo -e "${RED}❌ Erreur: Le script source $START_SCRIPT_SOURCE n'existe pas!${NC}"
+if [ ! -d "$SCRIPT_EU_DIR" ]; then
+    echo -e "${RED}❌ Erreur: Le script sourc $SCRIPT_EU_DIRE n'existe pas!${NC}"
     echo "Veuillez créer le dossier Script_EU avec le fichier Start.sh"
     exit 1
 fi
-echo -e "   ${GREEN}✓${NC} Script Start.sh source: $START_SCRIPT_SOURCE trouvé"
+echo -e "   ${GREEN}✓${NC} Script Start.sh source: $SCRIPT_EU_DIR trouvé"
 
 # Vérification des bibliothèques JavaFX
 if [ ! -d "$JAVAFX_LIB_DIR" ]; then
@@ -92,10 +92,30 @@ echo -e "   ${GREEN}✓${NC} Bibliothèques JavaFX copiées ($JAVAFX_COUNT fichi
 cp -r "$EXT_DRIVER_DIR" "$TEMP_DIR/"
 echo -e "   ${GREEN}✓${NC} Drivers externes copiés ($DRIVER_COUNT fichiers)"
 
-# Copie du script Start.sh
-cp "$START_SCRIPT_SOURCE" "$TEMP_DIR/"
-chmod +x "$TEMP_DIR/Start.sh"
-echo -e "   ${GREEN}✓${NC} Script Start.sh copié et rendu exécutable"
+# Copie de tous les scripts utilisateur final
+SCRIPT_EU_DIR="./Script_EU"
+if [ -d "$SCRIPT_EU_DIR" ]; then
+    SCRIPT_COUNT=$(find "$SCRIPT_EU_DIR" -type f | wc -l)
+    cp -r ./Script_EU/* "$TEMP_DIR"
+    
+    # Rendre tous les .sh exécutables
+    find "$TEMP_DIR/Script_EU" -name "*.sh" -type f -exec chmod +x {} \;
+    
+    echo -e "   ${GREEN}✓${NC} Scripts utilisateur copiés : $SCRIPT_COUNT fichiers du dossier Script_EU"
+    
+    # Créer aussi une copie du Start.sh à la racine pour compatibilité
+    if [ -f "$TEMP_DIR/Script_EU/Start.sh" ]; then
+        cp "$TEMP_DIR/Script_EU/*.*" "$TEMP_DIR/"
+        chmod +x "$TEMP_DIR/Start.sh"
+        echo -e "   ${GREEN}✓${NC} Start.sh copié également à la racine"
+    fi
+else
+    echo -e "   ${RED}❌${NC} Erreur: Le dossier $SCRIPT_EU_DIR n'existe pas!"
+    exit 1
+fi
+
+echo "Appuyer sur Entrée pour continuer..."
+read a
 
 # Création de l'archive
 echo
@@ -129,3 +149,4 @@ echo "   2. Aller dans le dossier UMLGen/"
 echo "   3. Exécuter: ./Start.sh"
 echo
 echo "=== Génération terminée ==="
+
