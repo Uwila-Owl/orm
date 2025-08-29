@@ -11,7 +11,7 @@ REM Définition des chemins
 set "JAVAFX_LIB_DIR=.\JavaFX_Lib\Win\lib"
 set "EXT_DRIVER_DIR=.\Ext_Driver"
 set "JAR_NAME=GenerateurUML.jar"
-set "MAIN_CLASS=FentreLogin"
+set "MAIN_CLASS=FenetreLogin"
 
 REM Vérification de l'existence du JAR principal
 if not exist "%JAR_NAME%" (
@@ -108,7 +108,7 @@ java ^
 --enable-native-access=javafx.graphics ^
 -Dprism.order=sw ^
 -cp ".;GenerateurUML.jar;.\Ext_Driver\postgresql-42.7.7.jar" ^
-InterfaceGenerateurUML
+FenetreLogin
 
 
 REM Vérification du code de sortie

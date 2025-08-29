@@ -324,7 +324,7 @@ public class ZoneModelisation extends Pane {
 
         MajPositionLigne(ligne, g1, g2);
 
-        this.getChildren().add(ligne);
+        this.getChildren().add(0, ligne);
         lignesAssociees.add(new LigneAssociee(ligne, source, cible));
     }
 
