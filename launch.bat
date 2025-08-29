@@ -11,7 +11,7 @@ REM Définition des chemins
 set "JAVAFX_LIB_DIR=.\JavaFX_Lib\Win\lib"
 set "EXT_DRIVER_DIR=.\Ext_Driver"
 set "JAR_NAME=GenerateurUML.jar"
-set "MAIN_CLASS=InterfaceGenerateurUML"
+set "MAIN_CLASS=FentreLogin"
 
 REM Vérification de l'existence du JAR principal
 if not exist "%JAR_NAME%" (
@@ -21,7 +21,7 @@ if not exist "%JAR_NAME%" (
     exit /b 1
 )
 
-echo ✓ JAR principal trouvé: %JAR_NAME%
+echo [OK] JAR principal trouvé: %JAR_NAME%
 
 REM Vérification de l'existence du dossier JavaFX
 if not exist "%JAVAFX_LIB_DIR%" (
@@ -57,7 +57,7 @@ if "%MODULE_PATH%"=="" (
     exit /b 1
 )
 
-echo ✓ Module-path JavaFX: %MODULE_PATH%
+echo [OK] Module-path JavaFX: %MODULE_PATH%
 
 REM Construction du classpath avec les drivers externes
 echo Construction du classpath...
@@ -67,7 +67,7 @@ REM Ajout des drivers PostgreSQL
 set "POSTGRES_FOUND=false"
 for %%f in ("%EXT_DRIVER_DIR%\*postgresql*.jar") do (
     set "CLASSPATH=!CLASSPATH!;%%f"
-    echo ✓ Driver PostgreSQL ajouté: %%~nxf
+    echo [OK] Driver PostgreSQL ajouté: %%~nxf
     set "POSTGRES_FOUND=true"
 )
 
@@ -81,7 +81,7 @@ for %%f in ("%EXT_DRIVER_DIR%\*.jar") do (
     echo !FILENAME! | findstr /i "postgresql" >nul
     if errorlevel 1 (
         set "CLASSPATH=!CLASSPATH!;%%f"
-        echo ✓ Driver externe ajouté: %%~nxf
+        echo [OK] Driver externe ajouté: %%~nxf
     )
 )
 
@@ -89,7 +89,7 @@ echo Classpath complet: %CLASSPATH%
 echo.
 
 REM Définition des modules JavaFX à charger
-set "MODULES=javafx.controls,javafx.fxml,javafx.graphics"
+set "MODULES=javafx.controls,javafx.fxml,javafx.graphics,javafx.swing"
 
 REM Commande de lancement
 echo Lancement de l'application...

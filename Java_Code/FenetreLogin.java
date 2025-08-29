@@ -7,6 +7,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;  
 import java.time.LocalDateTime;  
   
+import javafx.application.Platform;  
+import javafx.embed.swing.JFXPanel; // Import pour JFXPanel  
   
 public class FenetreLogin extends JFrame {  
   
@@ -49,16 +51,15 @@ public class FenetreLogin extends JFrame {
                 String password = new String(passwordField.getPassword());  
                 if (authentifier(id, password)) {  
                     JOptionPane.showMessageDialog(FenetreLogin.this, "Authentification réussie!");  
-                     // Lancer InterfaceGenerateurUML  
-                     try {  
-                        InterfaceGenerateurUML interfaceGenerateurUML = new InterfaceGenerateurUML();  
-                        interfaceGenerateurUML.setVisible(true);  
-                        FenetreLogin.this.dispose(); // Fermer la fenêtre de login  
+                     // Lancer InterfaceGenerateurUML (JavaFX)  
+                     FenetreLogin.this.dispose(); // Fermer la fenêtre de login  
+                     // Lancer InterfaceGenerateurUML (JavaFX)  
+                    SwingUtilities.invokeLater(() -> {  // Assurez-vous que cela s'exécute sur l'EDT Swing  
+                        Platform.runLater(() -> { // Lance la partie JavaFX sur le thread JavaFX  
+                            new InterfaceGenerateurUML().start(new javafx.stage.Stage());  
+                        });  
+                    });  
   
-                    } catch (Exception ex) {  
-                        LOGGER.log(Level.SEVERE, "Erreur lors du lancement de InterfaceGenerateurUML: " + ex.getMessage(), ex);  
-                        JOptionPane.showMessageDialog(FenetreLogin.this, "Erreur lors du lancement de l'interface.");  
-                    }  
                 } else {  
                     JOptionPane.showMessageDialog(FenetreLogin.this, "Authentification échouée.");  
                 }  
@@ -159,6 +160,8 @@ public class FenetreLogin extends JFrame {
   
   
     public static void main(String[] args) {  
+        // Initialize JavaFX Toolkit (required for Platform.runLater)  
+        new JFXPanel(); // Initialize the JavaFX toolkit.  
         SwingUtilities.invokeLater(new Runnable() {  
             public void run() {  
                 new FenetreLogin();  
@@ -166,7 +169,3 @@ public class FenetreLogin extends JFrame {
         });  
     }  
 }  
-  
-  
-  
-  

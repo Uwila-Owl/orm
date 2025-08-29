@@ -79,7 +79,7 @@ echo "Classpath complet: $CLASSPATH"
 echo
 
 # Définition des modules JavaFX à charger
-MODULES="javafx.controls,javafx.fxml,javafx.graphics"
+MODULES="javafx.controls,javafx.fxml,javafx.graphics,javafx.swing"
 
 # Commande de lancement
 echo "Lancement de l'application..."

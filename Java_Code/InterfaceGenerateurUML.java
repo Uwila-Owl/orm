@@ -146,8 +146,4 @@ public class InterfaceGenerateurUML extends Application {
         hbox.setPadding(new Insets(2));
         return hbox;
     }
-
-    public static void main(String[] args){
-        launch(args);
-    }
 }
