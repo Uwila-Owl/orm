@@ -93,7 +93,7 @@ if [ $? -eq 0 ] && [ -f "../$JAR_NAME" ]; then
     echo
     echo "=> $JAR_NAME est prêt à être exécuté!"
     echo "Pour lancer l'application:"
-    echo "  ./launsh.sh"
+    echo "  ./launch.sh"
     echo
     echo "=== Création du JAR terminée avec succès ==="
 else

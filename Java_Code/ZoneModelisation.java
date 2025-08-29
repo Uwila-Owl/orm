@@ -195,7 +195,7 @@ public class ZoneModelisation extends Pane {
         LigneAssociee la = new LigneAssociee(ligne, source, cible, cardSource, cardCible);
         lignesAssociees.add(la);
 
-        MajPositionLigne(ligne, g1, g2);
+        la.MajPosition();
         this.getChildren().add(0, ligne);
     }
 
@@ -382,16 +382,129 @@ public class ZoneModelisation extends Pane {
             ZoneModelisation.this.getChildren().addAll(cardinaliteSourceText, cardinaliteCibleText);
         }
 
+        // Dans la classe LigneAssociee de ZoneModelisation.java
+        // Remplacer la méthode MajPosition() par celle-ci :
+
         public void MajPosition() {
-            Group g1 = entiteToGroup.get((Integer) e1.get("id"));
-            Group g2 = entiteToGroup.get((Integer) e2.get("id"));
-            if (g1 != null && g2 != null) {
-                MajPositionLigne(ligne, g1, g2);
-                cardinaliteSourceText.setX(ligne.getStartX() - cardinaliteSourceText.getLayoutBounds().getWidth() / 2);
-                cardinaliteSourceText.setY(ligne.getStartY() - 5);
-                cardinaliteCibleText.setX(ligne.getEndX() - cardinaliteCibleText.getLayoutBounds().getWidth() / 2);
-                cardinaliteCibleText.setY(ligne.getEndY() - 5);
-            }
+        Group g1 = entiteToGroup.get((Integer) e1.get("id"));
+        Group g2 = entiteToGroup.get((Integer) e2.get("id"));
+        if (g1 != null && g2 != null) {
+        // Calculer les centres des entités
+        double centerX1 = g1.getLayoutX() + g1.getBoundsInParent().getWidth() / 2;
+        double centerY1 = g1.getLayoutY() + g1.getBoundsInParent().getHeight() / 2;
+        double centerX2 = g2.getLayoutX() + g2.getBoundsInParent().getWidth() / 2;
+        double centerY2 = g2.getLayoutY() + g2.getBoundsInParent().getHeight() / 2;
+
+        // Calculer les points de connexion sur les bords des rectangles
+        double[] point1 = calculerPointConnexion(g1, centerX2, centerY2);
+        double[] point2 = calculerPointConnexion(g2, centerX1, centerY1);
+
+        // Mettre à jour la ligne
+        ligne.setStartX(point1[0]);
+        ligne.setStartY(point1[1]);
+        ligne.setEndX(point2[0]);
+        ligne.setEndY(point2[1]);
+
+        // Positionner les cardinalités près des bords des entités
+        
+        // Cardinalité source (près de l'entité e1)
+        double offsetX1 = (point2[0] - point1[0]) * 0.1; // 10% de la ligne depuis e1
+        double offsetY1 = (point2[1] - point1[1]) * 0.1;
+   
+
+        // Cardinalité cible (près de l'entité e2)
+        double offsetX2 = (point1[0] - point2[0]) * 0.2; // 10% de la ligne depuis e2
+        double offsetY2 = (point1[1] - point2[1]) * 0.1;
+      
+        // Détermination de l'orientation de la ligne
+        double dx = point2[0] - point1[0];
+        double dy = point2[1] - point1[1];
+        double adx = Math.abs(dx);
+        double ady = Math.abs(dy);
+
+        if (adx > ady * 2) {
+            // Cas ligne principalement horizontale
+            cardinaliteSourceText.setX(point1[0] + offsetX1 -10);
+            cardinaliteSourceText.setY(point1[1] + 15);  // au-dessus
+
+            cardinaliteCibleText.setX(point2[0] + offsetX2);
+            cardinaliteCibleText.setY(point2[1] - 15);  // en-dessous
+
+        } else if (ady > adx * 2) {
+            // Cas ligne principalement verticale
+            cardinaliteSourceText.setX(point1[0] + 5);  // à droite
+            cardinaliteSourceText.setY(point1[1] + offsetY1);
+
+            cardinaliteCibleText.setX(point2[0] - cardinaliteCibleText.getLayoutBounds().getWidth() - 5); // à gauche
+            cardinaliteCibleText.setY(point2[1] + offsetY2);
+
+        } else {
+            // Cas ligne diagonale
+            double norm = Math.sqrt(dx * dx + dy * dy);
+            double ux = dx / norm;
+            double uy = dy / norm;
+
+            // vecteur perpendiculaire pour décaler la cardinalité
+            double px = -uy;
+            double py = ux;
+
+            // Source
+            cardinaliteSourceText.setX(point1[0] + offsetX1 + px * 15);
+            cardinaliteSourceText.setY(point1[1] + offsetY1 + py * 15);
+
+            // Cible
+            cardinaliteCibleText.setX(point2[0] + offsetX2 + px * 15 - cardinaliteCibleText.getLayoutBounds().getWidth() / 2);
+            cardinaliteCibleText.setY(point2[1] + offsetY2 + py * 15);
         }
-    }
+
+
+        }
+        }
+
+        // Ajouter cette méthode helper dans la classe LigneAssociee :
+        private double[] calculerPointConnexion(Group entite, double targetX, double targetY) {
+        double entiteX = entite.getLayoutX();
+        double entiteY = entite.getLayoutY();
+        double entiteWidth = entite.getBoundsInParent().getWidth();
+        double entiteHeight = entite.getBoundsInParent().getHeight();
+
+        double centerX = entiteX + entiteWidth / 2;
+        double centerY = entiteY + entiteHeight / 2;
+
+        // Calculer la direction vers le point cible
+        double dx = targetX - centerX;
+        double dy = targetY - centerY;
+
+        // Points d'intersection avec les bords du rectangle
+        double[] point = new double[2];
+
+        if (Math.abs(dx) / entiteWidth > Math.abs(dy) / entiteHeight) {
+        // Intersection avec le bord gauche ou droit
+        if (dx > 0) {
+            // Bord droit
+            point[0] = entiteX + entiteWidth;
+            point[1] = centerY + dy * (entiteWidth / 2) / Math.abs(dx);
+        } else {
+            // Bord gauche
+            point[0] = entiteX;
+            point[1] = centerY + dy * (entiteWidth / 2) / Math.abs(dx);
+        }
+        } else {
+        // Intersection avec le bord haut ou bas
+        if (dy > 0) {
+            // Bord bas
+            point[0] = centerX + dx * (entiteHeight / 2) / Math.abs(dy);
+            point[1] = entiteY + entiteHeight;
+        } else {
+            // Bord haut
+            point[0] = centerX + dx * (entiteHeight / 2) / Math.abs(dy);
+            point[1] = entiteY;
+        }
+        }
+
+        return point;
+        }
+
+       
+    }       
 }
