@@ -14,22 +14,19 @@ public class PanneauProprietes extends VBox {
     private static final Logger LOGGER = Logger.getLogger(PanneauProprietes.class.getName());
 
     private TextField tfNom;
-    private VBox attrBox;
+    private TextField tfNomRelation; // Nouveau champ
     private TextField tfAttrNom;
-    private ComboBox<String> cbAttrType;
-    private RadioButton rbPK, rbFK;
-    private ToggleGroup tgCle;
-    private Button btnAjoutAttr;
-
-    private Map<String, Object> entiteCourante;
-    private ZoneModelisation zone;
-
-    private ComboBox<String> cbLien;
-    private Button btnCreerLien;
-
-    // Champs cardinalité
     private TextField tfCardSource;
     private TextField tfCardCible;
+    private ToggleGroup tgCle;
+    private VBox attrBox;
+    private Map<String, Object> entiteCourante;
+    private ZoneModelisation zone;
+    private ComboBox<String> cbAttrType;
+    private ComboBox<String> cbLien;
+    private Button btnCreerLien;
+    private Button btnAjoutAttr;
+    private RadioButton rbPK, rbFK;
 
     public PanneauProprietes(ZoneModelisation zone) {
         this.zone = zone;
@@ -42,6 +39,17 @@ public class PanneauProprietes extends VBox {
         tfNom.setOnAction(e -> {
             if (entiteCourante != null) {
                 entiteCourante.put("nom", tfNom.getText());
+                zone.mettreAJourEntite(entiteCourante);
+            }
+        });
+
+        // Label + champ Nom relation
+        Label lblNomRelation = new Label("Nom relation :");
+        tfNomRelation = new TextField();
+        tfNomRelation.setPromptText("Nom de la relation");
+        tfNomRelation.setOnAction(e -> {
+            if (entiteCourante != null) {
+                entiteCourante.put("nom_relation", tfNomRelation.getText());
                 zone.mettreAJourEntite(entiteCourante);
             }
         });
@@ -86,7 +94,7 @@ public class PanneauProprietes extends VBox {
                 if (cible != null) {
                     String typeLien = zone.isUML() ? "Héritage" : "Relation";
 
-                    // ✅ Insertion en base via RelationDAO
+                    // Insertion en base via RelationDAO
                     try {
                         int entiteSourceId = (int) entiteCourante.get("id");
                         int entiteCibleId = (int) cible.get("id");
@@ -118,12 +126,17 @@ public class PanneauProprietes extends VBox {
         HBox lienBox = new HBox(5, cbLien, btnCreerLien);
         VBox cardBox = new VBox(5, new Label("Cardinalités :"), tfCardSource, tfCardCible);
 
-        this.getChildren().addAll(lblNom, tfNom, lblAttr, attrInput, btnAjoutAttr, attrBox, cardBox, lienBox);
+        // Ajout des éléments dans l'ordre, avec Nom relation avant la liste des attributs
+        this.getChildren().addAll(lblNom, tfNom, lblNomRelation, tfNomRelation, lblAttr, attrInput, btnAjoutAttr, attrBox, cardBox, lienBox);
     }
 
     public void remplirPanneau(Map<String, Object> entite) {
         this.entiteCourante = entite;
         tfNom.setText((String) entite.get("nom"));
+
+        // Remplir Nom relation
+        tfNomRelation.setText((String) entite.getOrDefault("nom_relation", ""));
+
         attrBox.getChildren().clear();
 
         tfCardSource.clear();
