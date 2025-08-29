@@ -7,8 +7,11 @@ import javafx.scene.layout.VBox;
 
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 public class PanneauProprietes extends VBox {
+
+    private static final Logger LOGGER = Logger.getLogger(PanneauProprietes.class.getName());
 
     private TextField tfNom;
     private VBox attrBox;
@@ -23,6 +26,10 @@ public class PanneauProprietes extends VBox {
 
     private ComboBox<String> cbLien;
     private Button btnCreerLien;
+
+    // Champs cardinalité
+    private TextField tfCardSource;
+    private TextField tfCardCible;
 
     public PanneauProprietes(ZoneModelisation zone) {
         this.zone = zone;
@@ -64,6 +71,13 @@ public class PanneauProprietes extends VBox {
         cbLien = new ComboBox<>();
         cbLien.setPromptText("Sélectionner entité");
 
+        // Champs pour la cardinalité
+        tfCardSource = new TextField();
+        tfCardSource.setPromptText("Card. source [x,x]");
+
+        tfCardCible = new TextField();
+        tfCardCible.setPromptText("Card. cible [x,x]");
+
         btnCreerLien = new Button();
         btnCreerLien.setOnAction(e -> {
             String cibleNom = cbLien.getValue();
@@ -71,20 +85,61 @@ public class PanneauProprietes extends VBox {
                 Map<String, Object> cible = zone.getEntiteParNom(cibleNom);
                 if (cible != null) {
                     String typeLien = zone.isUML() ? "Héritage" : "Relation";
-                    zone.creerLienEntreEntites(entiteCourante, cible, typeLien);
+
+                    // ✅ Insertion en base via RelationDAO
+                    try {
+                        int entiteSourceId = (int) entiteCourante.get("id");
+                        int entiteCibleId = (int) cible.get("id");
+                        String typeSchema = (String) entiteCourante.get("type_schema");
+
+                        String cardSource = tfCardSource.getText().trim();
+                        String cardCible = tfCardCible.getText().trim();
+
+                        RelationDAO relationDAO = new RelationDAO();
+                        int relationId = relationDAO.insertRelation(
+                                typeLien,
+                                entiteSourceId,
+                                entiteCibleId,
+                                cardSource,
+                                cardCible,
+                                typeSchema
+                        );
+
+                        LOGGER.info("Relation créée en BDD avec ID = " + relationId);
+                        zone.creerLienEntreEntites(entiteCourante, cible, typeLien);
+
+                    } catch (Exception ex) {
+                        LOGGER.severe("Erreur lors de la création de la relation : " + ex.getMessage());
+                    }
                 }
             }
         });
 
         HBox lienBox = new HBox(5, cbLien, btnCreerLien);
+        VBox cardBox = new VBox(5, new Label("Cardinalités :"), tfCardSource, tfCardCible);
 
-        this.getChildren().addAll(lblNom, tfNom, lblAttr, attrInput, btnAjoutAttr, attrBox, lienBox);
+        this.getChildren().addAll(lblNom, tfNom, lblAttr, attrInput, btnAjoutAttr, attrBox, cardBox, lienBox);
     }
 
     public void remplirPanneau(Map<String, Object> entite) {
         this.entiteCourante = entite;
         tfNom.setText((String) entite.get("nom"));
         attrBox.getChildren().clear();
+
+        tfCardSource.clear();
+        tfCardCible.clear();
+
+        // Récupérer cardinalités depuis la BDD si relation existe
+        if (entiteCourante.containsKey("id")) {
+            int entiteSourceId = (int) entiteCourante.get("id");
+            RelationDAO relationDAO = new RelationDAO();
+            Map<String, Object> relation = relationDAO.getRelationBySourceId(entiteSourceId);
+
+            if (relation != null) {
+                tfCardSource.setText((String) relation.get("cardinalite_source"));
+                tfCardCible.setText((String) relation.get("cardinalite_cible"));
+            }
+        }
 
         List<Map<String, Object>> attributs = (List<Map<String, Object>>) entite.get("attributs");
         if (attributs != null) {

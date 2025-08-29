@@ -6,14 +6,10 @@ import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
 import javafx.scene.text.Text;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
-import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.ScrollEvent;
-import java.sql.SQLException;
-import java.sql.ResultSet;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -32,7 +28,7 @@ public class ZoneModelisation extends Pane {
 
     private EntiteDAO entiteDAO;
     private AttributDAO attributDAO;
-    private Visuel visuel; // Nouvelle instance de Visuel
+    private Visuel visuel;
 
     public interface SelectionListener {
 
@@ -43,7 +39,7 @@ public class ZoneModelisation extends Pane {
         super();
         this.entiteDAO = new EntiteDAO();
         this.attributDAO = new AttributDAO();
-        this.visuel = new Visuel(); // Initialisation de Visuel
+        this.visuel = new Visuel();
         ChargerEntites("UML");
         this.addEventFilter(ScrollEvent.SCROLL, this::zoomSouris);
         this.addEventFilter(KeyEvent.KEY_PRESSED, this::toucheClavAppui);
@@ -152,17 +148,73 @@ public class ZoneModelisation extends Pane {
                 ajouterEntiteERD(entity);
             }
         }
+
+        // Charger relations depuis la BDD
+        chargerRelationsDepuisBDD();
+    }
+
+    public void chargerRelationsDepuisBDD() {
+        RelationDAO relationDAO = new RelationDAO();
+        List<Map<String, Object>> relations = relationDAO.getAllRelations();
+
+        for (Map<String, Object> rel : relations) {
+            int sourceId = (int) rel.get("entite_source_id");
+            int cibleId = (int) rel.get("entite_cible_id");
+
+            Map<String, Object> source = entiteById.get(sourceId);
+            Map<String, Object> cible = entiteById.get(cibleId);
+
+            if (source != null && cible != null) {
+                String typeLien = rel.get("type_schema").equals("UML") ? "Héritage" : "Relation";
+                String cardSource = (String) rel.getOrDefault("cardinalite_source", "[ ]");
+                String cardCible = (String) rel.getOrDefault("cardinalite_cible", "[ ]");
+
+                if (!relationExiste(source, cible, typeLien)) {
+                    creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, cardSource, cardCible);
+                }
+            }
+        }
+    }
+
+    public void creerLienEntreEntitesAvecCardinalites(Map<String, Object> source, Map<String, Object> cible, String typeLien,
+            String cardSource, String cardCible) {
+        if (source == null || cible == null || source.equals(cible)) {
+            return;
+        }
+
+        Group g1 = entiteToGroup.get((Integer) source.get("id"));
+        Group g2 = entiteToGroup.get((Integer) cible.get("id"));
+        if (g1 == null || g2 == null) {
+            return;
+        }
+
+        Line ligne = new Line();
+        ligne.setStroke(typeLien.equals("Héritage") ? Color.GREEN : Color.BLACK);
+        ligne.setStrokeWidth(typeLien.equals("Héritage") ? 3 : 1);
+
+        LigneAssociee la = new LigneAssociee(ligne, source, cible, cardSource, cardCible);
+        lignesAssociees.add(la);
+
+        MajPositionLigne(ligne, g1, g2);
+        this.getChildren().add(0, ligne);
+    }
+
+    /**
+     * Crée un lien entre deux entités avec des cardinalités par défaut [ ].
+     */
+    public void creerLienEntreEntites(Map<String, Object> source, Map<String, Object> cible, String typeLien) {
+        creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, "[ ]", "[ ]");
     }
 
     private void ajouterEntiteUML(Map<String, Object> entite) {
         Group entiteVisuelle = new Group();
-        visuel.ajouterEntiteUML(entiteVisuelle, entite); // Appel à la méthode de Visuel
+        visuel.ajouterEntiteUML(entiteVisuelle, entite);
         setupEntiteInteraction(entiteVisuelle, entite);
     }
 
     private void ajouterEntiteERD(Map<String, Object> entite) {
         Group entiteVisuelle = new Group();
-        visuel.ajouterEntiteERD(entiteVisuelle, entite); // Appel à la méthode de Visuel
+        visuel.ajouterEntiteERD(entiteVisuelle, entite);
         setupEntiteInteraction(entiteVisuelle, entite);
     }
 
@@ -194,7 +246,6 @@ public class ZoneModelisation extends Pane {
         });
 
         this.getChildren().add(entiteVisuelle);
-
         Integer entiteId = (Integer) entite.get("id");
         entiteToGroup.put(entiteId, entiteVisuelle);
     }
@@ -223,27 +274,69 @@ public class ZoneModelisation extends Pane {
         double x, y;
     }
 
-    private class LigneAssociee {
-
-        Line ligne;
-        Map<String, Object> e1;
-        Map<String, Object> e2;
-
-        public LigneAssociee(Line l, Map<String, Object> e1, Map<String, Object> e2) {
-            this.ligne = l;
-            this.e1 = e1;
-            this.e2 = e2;
-        }
-
-        public void MajPosition() {
-            Integer id1 = (Integer) e1.get("id");
-            Integer id2 = (Integer) e2.get("id");
-            Group g1 = entiteToGroup.get(id1);
-            Group g2 = entiteToGroup.get(id2);
-            if (g1 != null && g2 != null) {
-                MajPositionLigne(ligne, g1, g2);
+    // ----------------- Méthodes publiques -----------------
+    public Map<String, Object> getEntiteParNom(String nom) {
+        for (Map<String, Object> ent : entiteById.values()) {
+            if (nom.equals(ent.get("nom"))) {
+                return ent;
             }
         }
+        return null;
+    }
+
+    public void mettreAJourEntite(Map<String, Object> entite) {
+        Integer entiteId = (Integer) entite.get("id");
+        Group oldGroup = entiteToGroup.get(entiteId);
+
+        if (oldGroup != null) {
+            this.getChildren().remove(oldGroup);
+            entiteToGroup.remove(entiteId);
+        }
+
+        entiteById.put(entiteId, entite);
+
+        String typeSchema = isUML ? "UML" : "ERD";
+        List<Map<String, Object>> attributs = (List<Map<String, Object>>) entite.get("attributs");
+        if (attributs != null) {
+            attributDAO.updateAttributsForEntite(entiteId, attributs, typeSchema);
+        }
+
+        if (isUML) {
+            ajouterEntiteUML(entite);
+        } else {
+            ajouterEntiteERD(entite);
+        }
+    }
+
+    public boolean isUML() {
+        return this.isUML;
+    }
+
+    public List<String> getNomsEntitesExcluant(Map<String, Object> entiteExclue) {
+        List<String> noms = new ArrayList<>();
+        for (Map<String, Object> ent : entiteById.values()) {
+            if (!ent.equals(entiteExclue)) {
+                noms.add((String) ent.get("nom"));
+            }
+        }
+        return noms;
+    }
+
+    public List<Map<String, Object>> getAllEntities() {
+        return new ArrayList<>(entiteById.values());
+    }
+
+    public boolean relationExiste(Map<String, Object> source, Map<String, Object> cible, String typeLien) {
+        for (LigneAssociee ligne : lignesAssociees) {
+            boolean memeType = (typeLien.equals("Héritage") && ligne.ligne.getStroke().equals(Color.GREEN))
+                    || (typeLien.equals("Relation") && ligne.ligne.getStroke().equals(Color.BLACK));
+            boolean memeCouple = (ligne.e1.equals(source) && ligne.e2.equals(cible))
+                    || (ligne.e1.equals(cible) && ligne.e2.equals(source));
+            if (memeType && memeCouple) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void MajPositionLigne(Line ligne, Group g1, Group g2) {
@@ -258,102 +351,47 @@ public class ZoneModelisation extends Pane {
         ligne.setEndY(y2);
     }
 
-    public void mettreAJourEntite(Map<String, Object> entite) {
-        Integer entiteId = (Integer) entite.get("id");
-        Group oldGroup = entiteToGroup.get(entiteId);
-
-        if (oldGroup != null) {
-            this.getChildren().remove(oldGroup);
-            entiteToGroup.remove(entiteId);
-        }
-
-        entiteById.put(entiteId, entite);
-
-        if (entiteId != null && entiteId != -1) {
-            List<Map<String, Object>> attributs = (List<Map<String, Object>>) entite.get("attributs");
-            String typeSchema = isUML ? "UML" : "ERD";
-
-            if (attributs != null) {
-                attributDAO.updateAttributsForEntite(entiteId, attributs, typeSchema);
-            }
-        }
-
-        if (isUML) {
-            ajouterEntiteUML(entite);
-        } else {
-            ajouterEntiteERD(entite);
-        }
-    }
-
-    // Retourne la liste des noms d'entités existantes, optionnellement en excluant une entité donnée
-    public List<String> getNomsEntitesExcluant(Map<String, Object> entiteExclue) {
-        List<String> noms = new ArrayList<>();
-        for (Map<String, Object> ent : entiteById.values()) {
-            if (!ent.equals(entiteExclue)) {
-                noms.add((String) ent.get("nom"));
-            }
-        }
-        return noms;
-    }
-
-    // Récupère une entité par son nom
-    public Map<String, Object> getEntiteParNom(String nom) {
-        for (Map<String, Object> ent : entiteById.values()) {
-            if (nom.equals(ent.get("nom"))) {
-                return ent;
-            }
-        }
-        return null;
-    }
-
-    // Crée un lien visuel (relation ou héritage) entre deux entités
-    public void creerLienEntreEntites(Map<String, Object> source, Map<String, Object> cible, String typeLien) {
-        if (source == null || cible == null || source.equals(cible)) {
-            return;
-        }
-
-        Group g1 = entiteToGroup.get((Integer) source.get("id"));
-        Group g2 = entiteToGroup.get((Integer) cible.get("id"));
-        if (g1 == null || g2 == null) {
-            return;
-        }
-
-        Line ligne = new Line();
-        ligne.setStroke(typeLien.equals("Héritage") ? Color.GREEN : Color.BLACK);
-        ligne.setStrokeWidth(typeLien.equals("Héritage") ? 3 : 1);
-
-        MajPositionLigne(ligne, g1, g2);
-
-        this.getChildren().add(0, ligne);
-        lignesAssociees.add(new LigneAssociee(ligne, source, cible));
-    }
-
-    public List<Map<String, Object>> getAllEntities() {
-        return new ArrayList<>(entiteById.values());
-    }
-
-    public boolean isUML() {
-        return this.isUML;
-    }
-
-    public boolean relationExiste(Map<String, Object> source, Map<String, Object> cible, String typeLien) {
-        for (LigneAssociee ligne : lignesAssociees) {
-            boolean memeType = (typeLien.equals("Héritage") && ligne.ligne.getStroke().equals(javafx.scene.paint.Color.GREEN))
-                    || (typeLien.equals("Relation") && ligne.ligne.getStroke().equals(javafx.scene.paint.Color.BLACK));
-            boolean memeCouple = (ligne.e1.equals(source) && ligne.e2.equals(cible))
-                    || (ligne.e1.equals(cible) && ligne.e2.equals(source));
-            if (memeType && memeCouple) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private void zoomSouris(ScrollEvent event) {
-        visuel.zoomSouris(event, this); // Appel à la méthode de Visuel
+        visuel.zoomSouris(event, this);
     }
 
     private void toucheClavAppui(KeyEvent event) {
-        visuel.toucheClavAppui(event); // Appel à la méthode de Visuel
+        visuel.toucheClavAppui(event);
+    }
+
+    // ----------------- Classe LigneAssociee -----------------
+    private class LigneAssociee {
+
+        Line ligne;
+        Map<String, Object> e1;
+        Map<String, Object> e2;
+        String cardSource;
+        String cardCible;
+        Text cardinaliteSourceText;
+        Text cardinaliteCibleText;
+
+        public LigneAssociee(Line l, Map<String, Object> e1, Map<String, Object> e2, String cardSource, String cardCible) {
+            this.ligne = l;
+            this.e1 = e1;
+            this.e2 = e2;
+            this.cardSource = cardSource;
+            this.cardCible = cardCible;
+
+            this.cardinaliteSourceText = new Text(cardSource);
+            this.cardinaliteCibleText = new Text(cardCible);
+            ZoneModelisation.this.getChildren().addAll(cardinaliteSourceText, cardinaliteCibleText);
+        }
+
+        public void MajPosition() {
+            Group g1 = entiteToGroup.get((Integer) e1.get("id"));
+            Group g2 = entiteToGroup.get((Integer) e2.get("id"));
+            if (g1 != null && g2 != null) {
+                MajPositionLigne(ligne, g1, g2);
+                cardinaliteSourceText.setX(ligne.getStartX() - cardinaliteSourceText.getLayoutBounds().getWidth() / 2);
+                cardinaliteSourceText.setY(ligne.getStartY() - 5);
+                cardinaliteCibleText.setX(ligne.getEndX() - cardinaliteCibleText.getLayoutBounds().getWidth() / 2);
+                cardinaliteCibleText.setY(ligne.getEndY() - 5);
+            }
+        }
     }
 }
