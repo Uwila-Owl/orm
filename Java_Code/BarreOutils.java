@@ -1,24 +1,33 @@
+
+import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
-
+import javafx.scene.layout.VBox;
+import javafx.scene.layout.HBox;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javafx.scene.control.Alert.AlertType;
 
 public class BarreOutils extends VBox {
 
     private ZoneModelisation zoneModelisation;
+    private InsertionDonnees dbManager;
+    private InterfaceGenerateurUML interfaceRef;
     private Map<String, Map<String, Object>> entitesCreees = new HashMap<>();
     private Map<String, Map<String, Object>> entiteCourante = new HashMap<>();
-    private VBox unitsList;
-    private InsertionDonnees dbManager; // Ajout d'InsertionDonnees - Léa
-    private InterfaceGenerateurUML interfaceRef;
     private VBox relationContainer;
     private VBox heritageContainer;
+    private VBox unitsList;
+
+    // Nouveaux champs pour création lien
+    private ComboBox<String> cbEntiteSource;
+    private ComboBox<String> cbEntiteCible;
+    private Button btnCreerLien;
 
     public BarreOutils(ZoneModelisation zoneModelisation, InterfaceGenerateurUML interfaceRef) {
         this.zoneModelisation = zoneModelisation;
@@ -38,7 +47,7 @@ public class BarreOutils extends VBox {
         title.setFont(Font.font("Arial", 14));
 
         unitsList = new VBox(5);
-        String[] unitLabels = { "Entité", "Attribut", "Relation", "Clé primaire", "Clé étrangère", "Héritage" };
+        String[] unitLabels = {"Entité", "Attribut", "Relation", "Clé primaire", "Clé étrangère", "Héritage"};
         for (String label : unitLabels) {
             VBox container = new VBox(3);
             MenuButton menuButton = new MenuButton(label);
@@ -68,8 +77,59 @@ public class BarreOutils extends VBox {
         purgerButton.setOnAction(e -> purgerBarreOutils());
 
         this.getChildren().addAll(title, unitsList, purgerButton);
+
+        // --- AJOUT DE LA SECTION CREATION LIEN ---
+        Label lblLien = new Label("Créer Relation / Héritage");
+        lblLien.setStyle("-fx-font-weight: bold; -fx-padding: 10 0 0 0;");
+
+        cbEntiteSource = new ComboBox<>();
+        cbEntiteSource.setPromptText("Entité source");
+
+        cbEntiteCible = new ComboBox<>();
+        cbEntiteCible.setPromptText("Entité cible");
+
+        btnCreerLien = new Button("Créer Lien");
+        btnCreerLien.setOnAction(e -> {
+            String sourceNom = cbEntiteSource.getValue();
+            String cibleNom = cbEntiteCible.getValue();
+
+            if (sourceNom == null || cibleNom == null) {
+                showAlert("Sélection invalide", "Veuillez sélectionner une entité source et une entité cible.");
+                return;
+            }
+            if (sourceNom.equals(cibleNom)) {
+                showAlert("Sélection invalide", "La source et la cible doivent être différentes.");
+                return;
+            }
+
+            Map<String, Object> source = zoneModelisation.getEntiteParNom(sourceNom);
+            Map<String, Object> cible = zoneModelisation.getEntiteParNom(cibleNom);
+
+            String typeLien = zoneModelisation.isUML() ? "Héritage" : "Relation";
+
+            if (relationExiste(source, cible, typeLien)) {
+                showAlert("Relation existante", "Un " + typeLien + " existe déjà entre ces deux entités.");
+                return;
+            }
+
+            zoneModelisation.creerLienEntreEntites(source, cible, typeLien);
+        });
+
+        HBox hboxSource = new HBox(new Label("Source : "), cbEntiteSource);
+        hboxSource.setSpacing(5);
+        HBox hboxCible = new HBox(new Label("Cible : "), cbEntiteCible);
+        hboxCible.setSpacing(5);
+
+        VBox vboxLien = new VBox(lblLien, hboxSource, hboxCible, btnCreerLien);
+        vboxLien.setSpacing(10);
+        vboxLien.setPadding(new Insets(10, 0, 0, 0));
+
+        this.getChildren().add(vboxLien);
+        // --- FIN AJOUT ---
+
         zoneModelisation.setSelectionListener(this::updateToolbarForEntity);
         updateVisibility();
+        updateListeEntites();
     }
 
     private HBox createUnitItem(String type, VBox parentContainer, VBox parentMenuContainer) {
@@ -121,11 +181,10 @@ public class BarreOutils extends VBox {
     }
 
     private void creerEntite(String nom) {
-        // Vérifiez si l'entité existe déjà
         if (entitesCreees.containsKey(nom)) {
             System.out.println("L'entité '" + nom + "' existe déjà.");
-         return; // Ne pas créer une nouvelle entité
-        }   
+            return;
+        }
 
         Map<String, Object> entite = new HashMap<>();
         entite.put("nom", nom);
@@ -137,8 +196,8 @@ public class BarreOutils extends VBox {
         entitesCreees.put(nom, entite);
         entiteCourante.put("entite", entite);
 
-        // Insérer l'entité dans la base de données
         dbManager.insertEntity(entite, (List<Map<String, Object>>) entite.get("attributs"), "UML");
+        updateListeEntites();
     }
 
     private void ajouterAttribut(String nomAttribut) {
@@ -159,7 +218,6 @@ public class BarreOutils extends VBox {
                 attributs.add(attribut);
                 zoneModelisation.mettreAJourEntite(entite);
 
-                // Insérer l'attribut dans la base de données
                 dbManager.insertEntity(entite, attributs, "UML");
             } else {
                 System.out.println("L'attribut '" + nomAttribut + "' existe déjà pour cette entité.");
@@ -174,17 +232,14 @@ public class BarreOutils extends VBox {
             Map<String, Object> entite = (Map<String, Object>) entiteCourante.get("entite");
             List<Map<String, Object>> attributs = (List<Map<String, Object>>) entite.get("attributs");
 
-            // Chercher si l'attribut existe déjà
             Map<String, Object> attributExistant = attributs.stream()
                     .filter(attr -> attr.get("nom").equals(nomClePrimaire))
                     .findFirst()
                     .orElse(null);
 
             if (attributExistant != null) {
-                // Modifier l'attribut existant
                 attributExistant.put("cle_primaire", true);
             } else {
-                // Créer un nouvel attribut avec le statut de clé primaire
                 Map<String, Object> attribut = new HashMap<>();
                 attribut.put("nom", nomClePrimaire);
                 attribut.put("cle_primaire", true);
@@ -193,7 +248,6 @@ public class BarreOutils extends VBox {
                 attributs.add(attribut);
             }
 
-            // Mettre à jour l'affichage
             zoneModelisation.mettreAJourEntite(entite);
         } else {
             System.out.println("Aucune entité sélectionnée.");
@@ -205,17 +259,14 @@ public class BarreOutils extends VBox {
             Map<String, Object> entite = (Map<String, Object>) entiteCourante.get("entite");
             List<Map<String, Object>> attributs = (List<Map<String, Object>>) entite.get("attributs");
 
-            // Chercher si l'attribut existe déjà
             Map<String, Object> attributExistant = attributs.stream()
                     .filter(attr -> attr.get("nom").equals(nomCleEtrangere))
                     .findFirst()
                     .orElse(null);
 
             if (attributExistant != null) {
-                // Modifier l'attribut existant
                 attributExistant.put("cle_etrangere", true);
             } else {
-                // Créer un nouvel attribut avec le statut de clé étrangère
                 Map<String, Object> attribut = new HashMap<>();
                 attribut.put("nom", nomCleEtrangere);
                 attribut.put("cle_primaire", false);
@@ -224,7 +275,6 @@ public class BarreOutils extends VBox {
                 attributs.add(attribut);
             }
 
-            // Mettre à jour l'affichage
             zoneModelisation.mettreAJourEntite(entite);
         } else {
             System.out.println("Aucune entité sélectionnée.");
@@ -232,11 +282,11 @@ public class BarreOutils extends VBox {
     }
 
     private void creerRelation(String nomEntiteMere) {
-        /* ... */ 
+        /* ... */
     }
 
     private void creerHeritage(String nomEntiteMere) {
-        /* ... */ 
+        /* ... */
     }
 
     private void updateToolbarForEntity(Map<String, Object> entite) {
@@ -256,6 +306,7 @@ public class BarreOutils extends VBox {
         }
         entitesCreees.clear();
         entiteCourante.clear();
+        updateListeEntites();
     }
 
     private void setupVisibilityListeners() {
@@ -277,5 +328,26 @@ public class BarreOutils extends VBox {
             heritageContainer.setVisible(isUMLSelected);
             heritageContainer.setManaged(isUMLSelected);
         }
+    }
+
+    private void updateListeEntites() {
+        List<String> noms = zoneModelisation.getAllEntities().stream()
+                .map(ent -> (String) ent.get("nom"))
+                .toList();
+
+        cbEntiteSource.setItems(FXCollections.observableArrayList(noms));
+        cbEntiteCible.setItems(FXCollections.observableArrayList(noms));
+    }
+
+    private boolean relationExiste(Map<String, Object> source, Map<String, Object> cible, String typeLien) {
+        return zoneModelisation.relationExiste(source, cible, typeLien);
+    }
+
+    private void showAlert(String titre, String message) {
+        Alert alert = new Alert(AlertType.WARNING);
+        alert.setTitle(titre);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 }

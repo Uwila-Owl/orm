@@ -1,9 +1,12 @@
+
+import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 
 public class PanneauProprietes extends VBox {
 
@@ -17,11 +20,12 @@ public class PanneauProprietes extends VBox {
 
     private Map<String, Object> entiteCourante;
     private ZoneModelisation zone;
-    private InsertionDonnees dbManager; // Ajout de InsertionDonnees - Léa
+
+    private ComboBox<String> cbLien;
+    private Button btnCreerLien;
 
     public PanneauProprietes(ZoneModelisation zone) {
         this.zone = zone;
-        this.dbManager = new InsertionDonnees(); // Initialiser le gestionnaire de base de données
         this.setPadding(new Insets(10));
         this.setSpacing(10);
         this.setPrefWidth(300);
@@ -42,10 +46,6 @@ public class PanneauProprietes extends VBox {
         cbAttrType = new ComboBox<>();
         cbAttrType.getItems().addAll("texte", "int", "float", "bool", "date");
         cbAttrType.setPromptText("Type");
-        cbAttrType.valueProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null)
-                cbAttrType.setPromptText(newVal);
-        });
 
         tgCle = new ToggleGroup();
         rbPK = new RadioButton("PK");
@@ -60,7 +60,25 @@ public class PanneauProprietes extends VBox {
         btnAjoutAttr.setOnAction(e -> ajouterAttribut());
 
         attrBox = new VBox(5);
-        this.getChildren().addAll(lblNom, tfNom, lblAttr, attrInput, btnAjoutAttr, attrBox);
+
+        cbLien = new ComboBox<>();
+        cbLien.setPromptText("Sélectionner entité");
+
+        btnCreerLien = new Button();
+        btnCreerLien.setOnAction(e -> {
+            String cibleNom = cbLien.getValue();
+            if (cibleNom != null && entiteCourante != null) {
+                Map<String, Object> cible = zone.getEntiteParNom(cibleNom);
+                if (cible != null) {
+                    String typeLien = zone.isUML() ? "Héritage" : "Relation";
+                    zone.creerLienEntreEntites(entiteCourante, cible, typeLien);
+                }
+            }
+        });
+
+        HBox lienBox = new HBox(5, cbLien, btnCreerLien);
+
+        this.getChildren().addAll(lblNom, tfNom, lblAttr, attrInput, btnAjoutAttr, attrBox, lienBox);
     }
 
     public void remplirPanneau(Map<String, Object> entite) {
@@ -69,38 +87,55 @@ public class PanneauProprietes extends VBox {
         attrBox.getChildren().clear();
 
         List<Map<String, Object>> attributs = (List<Map<String, Object>>) entite.get("attributs");
-        for (Map<String, Object> attr : attributs) {
-            String prefix = "";
-            if ((boolean) attr.getOrDefault("cle_primaire", false))
-                prefix += "PK ";
-            if ((boolean) attr.getOrDefault("cle_etrangere", false))
-                prefix += "FK ";
-            String type = (String) attr.getOrDefault("type", "");
-            Label lbl = new Label(prefix + attr.get("nom") + (type.isEmpty() ? "" : " : " + type));
+        if (attributs != null) {
+            for (Map<String, Object> attr : attributs) {
+                String prefix = "";
+                if ((boolean) attr.getOrDefault("cle_primaire", false)) {
+                    prefix += "PK ";
+                }
+                if ((boolean) attr.getOrDefault("cle_etrangere", false)) {
+                    prefix += "FK ";
+                }
+                String type = (String) attr.getOrDefault("type", "");
+                Label lbl = new Label(prefix + attr.get("nom") + (type.isEmpty() ? "" : " : " + type));
 
-            Button btnSuppr = new Button("X");
-            btnSuppr.setOnAction(e -> {
-                attributs.remove(attr);
-                zone.mettreAJourEntite(entiteCourante);
-                remplirPanneau(entiteCourante);
-            });
+                Button btnSuppr = new Button("X");
+                btnSuppr.setOnAction(e -> {
+                    attributs.remove(attr);
+                    zone.mettreAJourEntite(entiteCourante);
+                    remplirPanneau(entiteCourante);
+                });
 
-            HBox hbox = new HBox(5, lbl, btnSuppr);
-            attrBox.getChildren().add(hbox);
+                HBox hbox = new HBox(5, lbl, btnSuppr);
+                attrBox.getChildren().add(hbox);
+            }
+        }
+
+        List<String> autresEntites = zone.getNomsEntitesExcluant(entite);
+        cbLien.setItems(FXCollections.observableArrayList(autresEntites));
+
+        if (zone.isUML()) {
+            btnCreerLien.setText("Créer Héritage");
+            cbLien.setPromptText("Héritage vers...");
+        } else {
+            btnCreerLien.setText("Créer Relation");
+            cbLien.setPromptText("Relation vers...");
         }
     }
 
     private void ajouterAttribut() {
-        if (entiteCourante == null)
+        if (entiteCourante == null) {
             return;
+        }
 
         String nom = tfAttrNom.getText().trim();
         String type = cbAttrType.getValue();
 
-        if (nom.isEmpty() || type == null)
+        if (nom.isEmpty() || type == null) {
             return;
+        }
 
-        Map<String, Object> attribut = new HashMap<>();
+        Map<String, Object> attribut = new java.util.HashMap<>();
         attribut.put("nom", nom);
         attribut.put("type", type);
         attribut.put("cle_primaire", rbPK.isSelected());
@@ -111,9 +146,6 @@ public class PanneauProprietes extends VBox {
 
         zone.mettreAJourEntite(entiteCourante);
         remplirPanneau(entiteCourante);
-
-        // Insérer l'attribut dans la base de données
-        dbManager.insertEntity(entiteCourante, attributs, "UML");
 
         tfAttrNom.clear();
         cbAttrType.setValue(null);
