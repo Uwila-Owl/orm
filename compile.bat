@@ -70,3 +70,5 @@ if %errorlevel%==0 (
 )
 
 endlocal
+
+pause
