@@ -219,36 +219,50 @@ public class ZoneModelisation extends Pane {
     }
 
     private void setupEntiteInteraction(Group entiteVisuelle, Map<String, Object> entite) {
-        entiteVisuelle.setLayoutX((double) entite.get("position_x"));
-        entiteVisuelle.setLayoutY((double) entite.get("position_y"));
+    // Position initiale
+    entiteVisuelle.setLayoutX((double) entite.get("position_x"));
+    entiteVisuelle.setLayoutY((double) entite.get("position_y"));
 
-        final Delta dragDelta = new Delta();
+    final Delta dragDelta = new Delta();
 
-        entiteVisuelle.setOnMousePressed(event -> {
-            dragDelta.x = entiteVisuelle.getLayoutX() - event.getSceneX();
-            dragDelta.y = entiteVisuelle.getLayoutY() - event.getSceneY();
+    // Clic sur l'entité
+    entiteVisuelle.setOnMousePressed(event -> {
+        dragDelta.x = entiteVisuelle.getLayoutX() - event.getSceneX();
+        dragDelta.y = entiteVisuelle.getLayoutY() - event.getSceneY();
 
-            if (selectionListener != null) {
-                selectionListener.onSelection(entite);
-            }
-        });
+        if (selectionListener != null) {
+            selectionListener.onSelection(entite);
+        }
+    });
 
-        entiteVisuelle.setOnMouseDragged(event -> {
-            entiteVisuelle.setLayoutX(event.getSceneX() + dragDelta.x);
-            entiteVisuelle.setLayoutY(event.getSceneY() + dragDelta.y);
+    // Drag & drop visuel
+    entiteVisuelle.setOnMouseDragged(event -> {
+        entiteVisuelle.setLayoutX(event.getSceneX() + dragDelta.x);
+        entiteVisuelle.setLayoutY(event.getSceneY() + dragDelta.y);
 
-            entite.put("position_x", entiteVisuelle.getLayoutX());
-            entite.put("position_y", entiteVisuelle.getLayoutY());
+        // Mise à jour temporaire du modèle (Map)
+        entite.put("position_x", entiteVisuelle.getLayoutX());
+        entite.put("position_y", entiteVisuelle.getLayoutY());
 
-            entiteDAO.updateEntitePosition((Integer) entite.get("id"), (int) entiteVisuelle.getLayoutX(), (int) entiteVisuelle.getLayoutY());
+        // Mise à jour graphique des liens
+        MajLien(entiteVisuelle);
+    });
 
-            MajLien(entiteVisuelle);
-        });
+    // Mise à jour DB uniquement à la fin du drag
+    entiteVisuelle.setOnMouseReleased(event -> {
+        entiteDAO.updateEntitePosition(
+            (Integer) entite.get("id"),
+            (int) entiteVisuelle.getLayoutX(),
+            (int) entiteVisuelle.getLayoutY()
+        );
+    });
 
-        this.getChildren().add(entiteVisuelle);
-        Integer entiteId = (Integer) entite.get("id");
-        entiteToGroup.put(entiteId, entiteVisuelle);
-    }
+    // Ajout dans la scène et cache
+    this.getChildren().add(entiteVisuelle);
+    Integer entiteId = (Integer) entite.get("id");
+    entiteToGroup.put(entiteId, entiteVisuelle);
+}
+
 
     private void MajLien(Node node) {
         Map<String, Object> entite = null;
