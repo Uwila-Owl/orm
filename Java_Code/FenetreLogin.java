@@ -1,12 +1,12 @@
 
 import javax.swing.*;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.time.LocalDateTime;
 import javafx.application.Platform;
 import javafx.embed.swing.JFXPanel;
 
@@ -32,7 +32,7 @@ public class FenetreLogin extends JFrame {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(bgColor);
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 10, 10, 10); // Espacement
+        gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         JLabel idLabel = new JLabel("ID:");
@@ -85,23 +85,38 @@ public class FenetreLogin extends JFrame {
 
         add(panel);
 
-        // Actions
-        okButton.addActionListener(e -> {
-            String id = idField.getText();
-            String password = new String(passwordField.getPassword());
-            if (authentifier(id, password)) {
-                JOptionPane.showMessageDialog(FenetreLogin.this, "Authentification réussie!");
-                FenetreLogin.this.dispose();
-                SwingUtilities.invokeLater(() -> {
-                    Platform.runLater(() -> {
-                        new InterfaceGenerateurUML().start(new javafx.stage.Stage());
-                    });
-                });
-            } else {
-                JOptionPane.showMessageDialog(FenetreLogin.this, "Authentification échouée.");
-            }
-        });
+        // Action commune pour OK et Entrée
+        Action okAction = new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String id = idField.getText().trim();
+                String password = new String(passwordField.getPassword()).trim();
 
+                if (id.isEmpty() || password.isEmpty()) {
+                    JOptionPane.showMessageDialog(FenetreLogin.this, "Veuillez remplir l'ID et le mot de passe.");
+                    return;
+                }
+
+                if (authentifier(id, password)) {
+                    JOptionPane.showMessageDialog(FenetreLogin.this, "Authentification réussie!");
+                    FenetreLogin.this.dispose();
+                    SwingUtilities.invokeLater(() -> {
+                        Platform.runLater(() -> {
+                            new InterfaceGenerateurUML().start(new javafx.stage.Stage());
+                        });
+                    });
+                } else {
+                    JOptionPane.showMessageDialog(FenetreLogin.this, "Authentification échouée.");
+                }
+            }
+        };
+
+        // Associer action au bouton et aux champs
+        okButton.addActionListener(okAction);
+        idField.addActionListener(okAction);
+        passwordField.addActionListener(okAction);
+
+        // Actions autres boutons
         createButton.addActionListener(e -> ouvrirFenetreCreation());
         cancelButton.addActionListener(e -> System.exit(0));
 
@@ -144,8 +159,12 @@ public class FenetreLogin extends JFrame {
         creationDialog.add(createButton);
 
         createButton.addActionListener(e -> {
-            String newId = newIdField.getText();
-            String newPassword = new String(newPasswordField.getPassword());
+            String newId = newIdField.getText().trim();
+            String newPassword = new String(newPasswordField.getPassword()).trim();
+            if (newId.isEmpty() || newPassword.isEmpty()) {
+                JOptionPane.showMessageDialog(creationDialog, "Veuillez remplir l'ID et le mot de passe.");
+                return;
+            }
             if (creerUtilisateur(newId, newPassword)) {
                 JOptionPane.showMessageDialog(creationDialog, "Utilisateur créé avec succès!");
                 creationDialog.dispose();
@@ -178,7 +197,7 @@ public class FenetreLogin extends JFrame {
     }
 
     public static void main(String[] args) {
-        new JFXPanel();
+        new JFXPanel(); // Initialisation JavaFX
         SwingUtilities.invokeLater(FenetreLogin::new);
     }
 }
