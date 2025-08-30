@@ -4,7 +4,7 @@ import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-
+import javafx.scene.text.Text;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -49,7 +49,15 @@ public class PanneauProprietes extends VBox {
         tfNomRelation.setPromptText("Nom de la relation");
         tfNomRelation.setOnAction(e -> {
             if (entiteCourante != null) {
-                entiteCourante.put("nom_relation", tfNomRelation.getText());
+                String nouveauNom = tfNomRelation.getText();
+                entiteCourante.put("nom_relation", nouveauNom);
+
+                // Mise à jour visuelle si ERD
+                Text relationText = (Text) entiteCourante.get("relation_text");
+                if (relationText != null) {
+                    relationText.setText(nouveauNom);
+                }
+
                 zone.mettreAJourEntite(entiteCourante);
             }
         });

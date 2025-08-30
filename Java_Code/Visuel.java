@@ -79,73 +79,49 @@ public class Visuel {
         double positionY = (double) entite.get("position_y");
         List<Map<String, Object>> attributs = (List<Map<String, Object>>) entite.get("attributs");
 
-        Rectangle rectPrincipal = new Rectangle(140, 60);
-        rectPrincipal.setFill(Color.WHITE);
-        rectPrincipal.setStroke(Color.BLACK);
-        rectPrincipal.setStrokeWidth(2);
+        double hauteur = 40 + (attributs != null ? attributs.size() : 0) * 20;
+        Rectangle rect = new Rectangle(160, hauteur);
+        rect.setFill(Color.WHITE);
+        rect.setStroke(Color.BLACK);
+        rect.setStrokeWidth(2);
 
         Text nomText = new Text(nom);
-        nomText.setFont(Font.font("Arial", FontWeight.BOLD, 20));
-        nomText.setFill(Color.BLACK);
-        nomText.setX(60 - nomText.getBoundsInLocal().getWidth() / 2);
-        nomText.setY(35);
+        nomText.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+        nomText.setX(10);
+        nomText.setY(20);
 
-        entiteVisuelle.getChildren().addAll(rectPrincipal, nomText);
+        Line separateur = new Line(5, 25, 155, 25);
 
-        double angleStep = 360.0 / Math.max((attributs != null ? attributs.size() : 0), 1);
-        double rayon = 80;
+        entiteVisuelle.getChildren().addAll(rect, nomText, separateur);
 
+        int yAttrib = 45;
         if (attributs != null) {
-            for (int i = 0; i < attributs.size(); i++) {
-                Map<String, Object> attribut = attributs.get(i);
+            for (Map<String, Object> attribut : attributs) {
                 String attrNom = (String) attribut.get("nom");
                 boolean clePrimaire = (boolean) attribut.get("cle_primaire");
                 boolean cleEtrangere = (boolean) attribut.get("cle_etrangere");
 
-                double angle = Math.toRadians(i * angleStep);
-                double attrX = 70 + rayon * Math.cos(angle);
-                double attrY = 30 + rayon * Math.sin(angle);
+                String prefix = "";
+                if (clePrimaire) {
+                    prefix += "PK ";
+                }
+                if (cleEtrangere) {
+                    prefix += "FK ";
+                }
 
-                Ellipse ellipseAttr = new Ellipse(60, 25);
-                ellipseAttr.setFill(clePrimaire ? Color.GOLD : (cleEtrangere ? Color.LIGHTCORAL : Color.LIGHTGREEN));
-                ellipseAttr.setStroke(Color.BLACK);
-                ellipseAttr.setStrokeWidth(clePrimaire ? 3 : 1);
-                ellipseAttr.setCenterX(attrX + 100);
-                ellipseAttr.setCenterY(attrY);
+                Text attrText = new Text(prefix + attrNom);
+                attrText.setX(10);
+                attrText.setY(yAttrib);
+                attrText.setFill(clePrimaire ? Color.RED : (cleEtrangere ? Color.ORANGE : Color.BLACK));
+                attrText.setFont(Font.font("Arial", clePrimaire ? FontWeight.BOLD : FontWeight.NORMAL, 12));
 
-                Text attrText = new Text(attrNom);
-                attrText.setFont(Font.font("Arial", clePrimaire ? FontWeight.BOLD : FontWeight.NORMAL, 16));
-                attrText.setFill(Color.BLACK);
-                attrText.setX(attrX + 100 - attrText.getBoundsInLocal().getWidth() / 2);
-                attrText.setY(attrY + 3);
-
-                Line ligneAttr = new Line();
-                ligneAttr.setStartX(140);
-                ligneAttr.setStartY(30);
-                ligneAttr.setEndX(attrX + 100);
-                ligneAttr.setEndY(attrY);
-                ligneAttr.setStroke(Color.BLACK);
-                ligneAttr.setStrokeWidth(1.5);
-
-                entiteVisuelle.getChildren().addAll(ligneAttr, ellipseAttr, attrText);
+                entiteVisuelle.getChildren().add(attrText);
+                yAttrib += 18;
             }
         }
-    }
 
-    // Méthode utilitaire pour rendre un groupe déplaçable à la souris
-    private void makeDraggable(Group group) {
-        final double[] offsetX = new double[1];
-        final double[] offsetY = new double[1];
-
-        group.setOnMousePressed((MouseEvent event) -> {
-            offsetX[0] = event.getSceneX() - group.getLayoutX();
-            offsetY[0] = event.getSceneY() - group.getLayoutY();
-        });
-
-        group.setOnMouseDragged((MouseEvent event) -> {
-            group.setLayoutX(event.getSceneX() - offsetX[0]);
-            group.setLayoutY(event.getSceneY() - offsetY[0]);
-        });
+        entiteVisuelle.setLayoutX(positionX);
+        entiteVisuelle.setLayoutY(positionY);
     }
 
     public void zoomSouris(ScrollEvent event, Node node) {
