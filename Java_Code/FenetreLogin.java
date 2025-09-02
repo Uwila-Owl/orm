@@ -199,37 +199,114 @@ public class FenetreLogin extends JFrame {
 
     private void ouvrirFenetreCreation() {
         JDialog creationDialog = new JDialog(this, "Création d'utilisateur", true);
-        creationDialog.setLayout(new GridLayout(3, 2, 10, 10));
-        creationDialog.setSize(350, 180);
+        creationDialog.setSize(400, 350);
         creationDialog.setLocationRelativeTo(this);
 
-        JLabel newIdLabel = new JLabel("Nouvel ID:");
-        JTextField newIdField = new JTextField();
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBackground(Color.decode("#D6E3F3"));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(8, 10, 8, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        JLabel newPasswordLabel = new JLabel("Nouveau mot de passe:");
-        JPasswordField newPasswordField = new JPasswordField();
+        // Labels et champs
+        JLabel idLabel = new JLabel("ID:");
+        JTextField idField = new JTextField(15);
+
+        // Icône avec infobulle
+        Icon questionIcon = UIManager.getIcon("OptionPane.questionIcon");
+        JLabel infoIcon = new JLabel(questionIcon);
+        infoIcon.setToolTipText("L'ID doit être le numéro étudiant");
+        infoIcon.setForeground(Color.BLUE);
+        infoIcon.setFont(new Font("Arial", Font.BOLD, 16));
+
+        JLabel nomLabel = new JLabel("Nom:");
+        JTextField nomField = new JTextField(15);
+
+        JLabel prenomLabel = new JLabel("Prénom:");
+        JTextField prenomField = new JTextField(15);
+
+        JLabel emailLabel = new JLabel("Email:");
+        JTextField emailField = new JTextField(15);
+
+        JLabel idDiscordLabel = new JLabel("ID Discord:");
+        JTextField idDiscordField = new JTextField(15);
 
         JButton createButton = new JButton("Créer");
 
-        creationDialog.add(newIdLabel);
-        creationDialog.add(newIdField);
-        creationDialog.add(newPasswordLabel);
-        creationDialog.add(newPasswordField);
-        creationDialog.add(new JLabel());
-        creationDialog.add(createButton);
+        // Positionnement avec GridBagLayout
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.gridwidth = 1;
+        panel.add(idLabel, gbc);
+
+        gbc.gridx = 1;
+        panel.add(idField, gbc);
+
+        gbc.gridx = 2;
+        panel.add(infoIcon, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        panel.add(nomLabel, gbc);
+
+        gbc.gridx = 1;
+        gbc.gridwidth = 2;
+        panel.add(nomField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.gridwidth = 1;
+        panel.add(prenomLabel, gbc);
+
+        gbc.gridx = 1;
+        gbc.gridwidth = 2;
+        panel.add(prenomField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        gbc.gridwidth = 1;
+        panel.add(emailLabel, gbc);
+
+        gbc.gridx = 1;
+        gbc.gridwidth = 2;
+        panel.add(emailField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 4;
+        gbc.gridwidth = 1;
+        panel.add(idDiscordLabel, gbc);
+
+        gbc.gridx = 1;
+        gbc.gridwidth = 2;
+        panel.add(idDiscordField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 5;
+        gbc.gridwidth = 3;
+        gbc.anchor = GridBagConstraints.CENTER;
+        panel.add(createButton, gbc);
+
+        creationDialog.setContentPane(panel);
 
         createButton.addActionListener(e -> {
-            String newId = newIdField.getText().trim();
-            String newPassword = new String(newPasswordField.getPassword()).trim();
-            if (newId.isEmpty() || newPassword.isEmpty()) {
-                JOptionPane.showMessageDialog(creationDialog, "Veuillez remplir l'ID et le mot de passe.");
+            String id = idField.getText().trim();
+            String nom = nomField.getText().trim();
+            String prenom = prenomField.getText().trim();
+            String email = emailField.getText().trim();
+            String idDiscord = idDiscordField.getText().trim();
+
+            // Validation des champs obligatoires
+            if (id.isEmpty() || nom.isEmpty() || prenom.isEmpty() || email.isEmpty()) {
+                JOptionPane.showMessageDialog(creationDialog, "Veuillez remplir tous les champs obligatoires (ID, Nom, Prénom, Email).");
                 return;
             }
-            if (creerUtilisateur(newId, newPassword)) {
+
+            if (creerUtilisateur(id, nom, prenom, email, idDiscord)) {
                 JOptionPane.showMessageDialog(creationDialog, "Utilisateur créé avec succès!");
                 creationDialog.dispose();
-                idField.setText(newId);
-                passwordField.setText(newPassword);
+                idField.setText(id);
+                this.idField.setText(id);
+                this.passwordField.setText(""); // mot de passe non modifié ici
             } else {
                 JOptionPane.showMessageDialog(creationDialog, "Erreur lors de la création de l'utilisateur.");
             }
@@ -238,14 +315,25 @@ public class FenetreLogin extends JFrame {
         creationDialog.setVisible(true);
     }
 
-    private boolean creerUtilisateur(String id, String password) {
+    private boolean creerUtilisateur(String id, String nom, String prenom, String email, String idDiscord) {
+        // Ici on génère un mot de passe temporaire ou on peut demander un mot de passe dans la création (à adapter)
+        String passwordTemporaire = "changeme"; // ou générer un mot de passe aléatoire
+
         try (Connection connection = connexionBdd.getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(
-                "INSERT INTO utilisateurs (ID, Password, active, supvis, date) VALUES (?, ?, ?, ?, ?)")) {
+                "INSERT INTO utilisateurs (ID, Password, active, supvis, date, nom, prénom, email, id_discord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
             preparedStatement.setString(1, id);
-            preparedStatement.setString(2, password);
+            preparedStatement.setString(2, passwordTemporaire);
             preparedStatement.setBoolean(3, true);
             preparedStatement.setBoolean(4, false);
             preparedStatement.setTimestamp(5, Timestamp.valueOf(LocalDateTime.now()));
+            preparedStatement.setString(6, nom);
+            preparedStatement.setString(7, prenom);
+            preparedStatement.setString(8, email);
+            if (idDiscord.isEmpty()) {
+                preparedStatement.setNull(9, java.sql.Types.VARCHAR);
+            } else {
+                preparedStatement.setString(9, idDiscord);
+            }
 
             int rowsAffected = preparedStatement.executeUpdate();
             return rowsAffected > 0;
