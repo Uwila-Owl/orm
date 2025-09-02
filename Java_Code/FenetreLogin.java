@@ -20,12 +20,13 @@ public class FenetreLogin extends JFrame {
     private JPasswordField passwordField;
     private ConnexionBdd connexionBdd;
     private JPanel connectionIndicator; // indicateur lumineux
+    private JLabel messageLabel; // label pour afficher messages
 
     public FenetreLogin() {
         super("Authentification");
         connexionBdd = new ConnexionBdd();
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(450, 300);
+        setSize(450, 320);
         setLocationRelativeTo(null);
 
         // Couleurs
@@ -90,6 +91,18 @@ public class FenetreLogin extends JFrame {
         gbc.gridwidth = 2;
         panel.add(cancelButton, gbc);
 
+        // Label message (vide au départ)
+        messageLabel = new JLabel(" ");
+        messageLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        messageLabel.setForeground(Color.BLUE);
+        GridBagConstraints gbcMessage = new GridBagConstraints();
+        gbcMessage.gridx = 0;
+        gbcMessage.gridy = 6;
+        gbcMessage.gridwidth = 2;
+        gbcMessage.insets = new Insets(5, 10, 10, 10);
+        gbcMessage.fill = GridBagConstraints.HORIZONTAL;
+        panel.add(messageLabel, gbcMessage);
+
         // Ajout du panel principal à la JFrame
         setContentPane(panel);
 
@@ -134,13 +147,24 @@ public class FenetreLogin extends JFrame {
                 }
 
                 if (authentifier(id, password)) {
-                    JOptionPane.showMessageDialog(FenetreLogin.this, "Authentification réussie!");
-                    FenetreLogin.this.dispose();
-                    SwingUtilities.invokeLater(() -> {
-                        Platform.runLater(() -> {
-                            new InterfaceGenerateurUML().start(new javafx.stage.Stage());
+                    messageLabel.setText("Authentification réussie! Fermeture automatique dans 5 secondes.");
+                    idField.setEnabled(false);
+                    passwordField.setEnabled(false);
+                    okButton.setEnabled(false);
+                    createButton.setEnabled(false);
+                    cancelButton.setEnabled(false);
+
+                    Timer timer = new Timer(5000, evt -> {
+                        FenetreLogin.this.dispose();
+                        SwingUtilities.invokeLater(() -> {
+                            Platform.runLater(() -> {
+                                new InterfaceGenerateurUML().start(new javafx.stage.Stage());
+                            });
                         });
                     });
+                    timer.setRepeats(false);
+                    timer.start();
+
                 } else {
                     JOptionPane.showMessageDialog(FenetreLogin.this, "Authentification échouée.");
                 }
