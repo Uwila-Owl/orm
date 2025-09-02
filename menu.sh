@@ -17,15 +17,42 @@ show_title() {
     echo -e "${CYAN}╔══════════════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║              🚀 GENERATEUR UML - MENU PRINCIPAL          ║${NC}"
     echo -e "${CYAN}╠══════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${CYAN}║                    Projet ORM Manager                    ║${NC}"
+    echo -e "${CYAN}║                    Projet ORM Manager v8                 ║${NC}"
     echo -e "${CYAN}╚══════════════════════════════════════════════════════════╝${NC}"
     echo
 }
 
 # Fonction pour afficher l'état des fichiers
 show_status() {
-    echo -e "${YELLOW}📊 État actuel du projet:${NC}"
+    echo -e "${BLUE}📊 État actuel du projet:${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Vérification de la version client
+    if [ -d "./End_User_UMLGen" ]; then
+        TAR_COUNT=$(find ./End_User_UMLGen -name "*.tar.gz" -type f 2>/dev/null | wc -l)
+        if [ $TAR_COUNT -gt 0 ]; then
+            TAR_FILE=$(find ./End_User_UMLGen -name "*.tar.gz" -type f 2>/dev/null | head -1)
+            TAR_SIZE=$(ls -lh "$TAR_FILE" | awk '{print $5}')
+            TAR_NAME=$(basename "$TAR_FILE")
+            echo -e "   ${GREEN}[OK]${NC} Version client: $TAR_NAME ($TAR_SIZE)"
+        else
+            echo -e "   ${YELLOW}[WARNING]${NC} Version client: Dossier présent mais aucune archive"
+        fi
+    else
+        echo -e "   ${YELLOW}[WARNING]${NC} Version client: Aucune version générée"
+    fi
+    
+    # Vérification des scripts utilisateur
+    if [ -d "./Script_EU" ]; then
+        SCRIPT_COUNT=$(find ./Script_EU -name "*.sh" -type f 2>/dev/null | wc -l)
+        if [ $SCRIPT_COUNT -gt 0 ]; then
+            echo -e "   ${GREEN}[OK]${NC} Scripts utilisateur final: $SCRIPT_COUNT fichiers dans /Script_EU"
+        else
+            echo -e "   ${YELLOW}[WARNING]${NC} Scripts utilisateur final: Dossier présent mais aucun script"
+        fi
+    else
+        echo -e "   ${YELLOW}[WARNING]${NC} Scripts utilisateur final: Dossier /Script_EU manquant"
+    fi
     
     # Vérification de Java
     if command -v java >/dev/null 2>&1; then
@@ -38,46 +65,46 @@ show_status() {
         fi
         
         if [ "$JAVA_MAJOR" -ge 24 ]; then
-            echo -e "   ${GREEN}✓${NC} Java: version $JAVA_VERSION (compatible)"
+            echo -e "   ${GREEN}[OK]${NC} Java: version $JAVA_VERSION (compatible)"
         elif [ "$JAVA_MAJOR" -gt 0 ]; then
-            echo -e "   ${YELLOW}⚠${NC} Java: version $JAVA_VERSION (recommandé: Java 24+)"
+            echo -e "   ${YELLOW}[WARNING]${NC} Java: version $JAVA_VERSION (recommandé: Java 24+)"
         else
-            echo -e "   ${RED}✗${NC} Java: version non détectable"
+            echo -e "   ${RED}[ERREUR]${NC} Java: version non détectable"
         fi
     else
-        echo -e "   ${RED}✗${NC} Java: Non installé ou non accessible"
+        echo -e "   ${RED}[ERREUR]${NC} Java: Non installé ou non accessible"
     fi
     
     # Vérification des sources Java
     JAVA_COUNT=$(find ./Java_Code -name "*.java" -type f 2>/dev/null | wc -l)
     if [ $JAVA_COUNT -gt 0 ]; then
-        echo -e "   ${GREEN}✓${NC} Sources Java: ${JAVA_COUNT} fichiers trouvés"
+        echo -e "   ${GREEN}[OK]${NC} Sources Java: ${JAVA_COUNT} fichiers trouvés"
     else
-        echo -e "   ${RED}✗${NC} Sources Java: Aucun fichier trouvé"
+        echo -e "   ${RED}[ERREUR]${NC} Sources Java: Aucun fichier trouvé"
     fi
     
     # Vérification des classes compilées
     CLASS_COUNT=$(find ./Class -name "*.class" -type f 2>/dev/null | wc -l)
     if [ $CLASS_COUNT -gt 0 ]; then
-        echo -e "   ${GREEN}✓${NC} Classes compilées: ${CLASS_COUNT} fichiers"
+        echo -e "   ${GREEN}[OK]${NC} Classes compilées: ${CLASS_COUNT} fichiers"
     else
-        echo -e "   ${RED}⚠${NC} Classes compilées: Aucune (compilation nécessaire)"
+        echo -e "   ${RED}[WARNING]${NC} Classes compilées: Aucune (compilation nécessaire)"
     fi
     
     # Vérification du JAR
     if [ -f "GenerateurUML.jar" ]; then
         JAR_SIZE=$(ls -lh GenerateurUML.jar | awk '{print $5}')
         JAR_DATE=$(ls -l GenerateurUML.jar | awk '{print $6" "$7" "$8}')
-        echo -e "   ${GREEN}✓${NC} JAR exécutable: GenerateurUML.jar (${JAR_SIZE}, ${JAR_DATE})"
+        echo -e "   ${GREEN}[OK]${NC} JAR exécutable: GenerateurUML.jar (${JAR_SIZE}, ${JAR_DATE})"
     else
-        echo -e "   ${RED}⚠${NC} JAR exécutable: Absent (création nécessaire)"
+        echo -e "   ${RED}[WARNING]${NC} JAR exécutable: Absent (création nécessaire)"
     fi
     
     # Vérification des dépendances
     JAVAFX_COUNT=$(find ./JavaFX_Lib -name "*.jar" -type f 2>/dev/null | wc -l)
     DRIVER_COUNT=$(find ./Ext_Driver -name "*.jar" -type f 2>/dev/null | wc -l)
-    echo -e "   ${GREEN}✓${NC} Bibliothèques JavaFX: ${JAVAFX_COUNT} fichiers"
-    echo -e "   ${GREEN}✓${NC} Drivers externes: ${DRIVER_COUNT} fichiers"
+    echo -e "   ${GREEN}[OK]${NC} Bibliothèques JavaFX: ${JAVAFX_COUNT} fichiers"
+    echo -e "   ${GREEN}[OK]${NC} Drivers externes: ${DRIVER_COUNT} fichiers"
     
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo
@@ -93,7 +120,9 @@ show_menu() {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo -e "   ${CYAN}4.${NC} ⚡ Workflow complet (1 → 2 → 3)"
     echo -e "   ${CYAN}5.${NC} 🧹 Purger le projet (nettoyer Class + JAR)"
-    echo -e "   ${CYAN}6.${NC} 🔄 Gestion Git"    
+    echo -e "   ${CYAN}6.${NC} 📦 Générer package client (create_client.sh)"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "   ${CYAN}7.${NC} 🗑️ Purge avancée (+ version client)"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo -e "   ${CYAN}9.${NC} 📊 Rafraîchir l'état"
     echo -e "   ${CYAN}0.${NC} ❌ Quitter"
@@ -115,7 +144,7 @@ execute_script() {
     fi
     
     if [ ! -x "$script_name" ]; then
-        echo -e "${YELLOW}⚠ Le script ${script_name} n'est pas exécutable. Correction...${NC}"
+        echo -e "${YELLOW}[WARNING] Le script ${script_name} n'est pas exécutable. Correction...${NC}"
         chmod +x "$script_name"
     fi
     
@@ -188,7 +217,7 @@ main() {
                     CLASS_COUNT_BEFORE=$(find ./Class -name "*.class" -type f 2>/dev/null | wc -l)
                     if [ $CLASS_COUNT_BEFORE -gt 0 ]; then
                         find ./Class -name "*.class" -type f -delete
-                        echo -e "   ${GREEN}✓${NC} ${CLASS_COUNT_BEFORE} fichiers .class supprimés du dossier /Class"
+                        echo -e "   ${GREEN}[OK]${NC} ${CLASS_COUNT_BEFORE} fichiers .class supprimés du dossier /Class"
                     else
                         echo -e "   ${YELLOW}ℹ${NC} Aucun fichier .class à supprimer dans /Class"
                     fi
@@ -199,7 +228,7 @@ main() {
                 # Suppression du JAR
                 if [ -f "GenerateurUML.jar" ]; then
                     rm "GenerateurUML.jar"
-                    echo -e "   ${GREEN}✓${NC} GenerateurUML.jar supprimé"
+                    echo -e "   ${GREEN}[OK]${NC} GenerateurUML.jar supprimé"
                 else
                     echo -e "   ${YELLOW}ℹ${NC} GenerateurUML.jar déjà absent"
                 fi
@@ -208,8 +237,54 @@ main() {
                 wait_for_user
                 ;;
             6)
-                echo -e "${BLUE}🔄 Gestion Git...${NC}"
-                execute_script "git_menu.sh" "Menu de gestion Git"
+                execute_script "create_client.sh" "Génération du package client"
+                wait_for_user
+                ;;
+            7)
+                echo -e "${BLUE}🗑️ Purge avancée du projet...${NC}"
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                
+                # Suppression des fichiers .class
+                if [ -d "./Class" ]; then
+                    CLASS_COUNT_BEFORE=$(find ./Class -name "*.class" -type f 2>/dev/null | wc -l)
+                    if [ $CLASS_COUNT_BEFORE -gt 0 ]; then
+                        find ./Class -name "*.class" -type f -delete
+                        echo -e "   ${GREEN}[OK]${NC} ${CLASS_COUNT_BEFORE} fichiers .class supprimés du dossier /Class"
+                    else
+                        echo -e "   ${YELLOW}ℹ${NC} Aucun fichier .class à supprimer dans /Class"
+                    fi
+                else
+                    echo -e "   ${YELLOW}ℹ${NC} Dossier /Class inexistant"
+                fi
+                
+                # Suppression du JAR
+                if [ -f "GenerateurUML.jar" ]; then
+                    rm "GenerateurUML.jar"
+                    echo -e "   ${GREEN}[OK]${NC} GenerateurUML.jar supprimé"
+                else
+                    echo -e "   ${YELLOW}ℹ${NC} GenerateurUML.jar déjà absent"
+                fi
+                
+                # Suppression des archives client
+                if [ -d "./End_User_UMLGen" ]; then
+                    TAR_COUNT_BEFORE=$(find ./End_User_UMLGen -name "*.tar.gz" -type f 2>/dev/null | wc -l)
+                    if [ $TAR_COUNT_BEFORE -gt 0 ]; then
+                        find ./End_User_UMLGen -name "*.tar.gz" -type f -delete
+                        echo -e "   ${GREEN}[OK]${NC} ${TAR_COUNT_BEFORE} archive(s) client supprimée(s)"
+                    else
+                        echo -e "   ${YELLOW}ℹ${NC} Aucune archive client à supprimer"
+                    fi
+                    
+                    # Suppression du dossier s'il est vide
+                    if [ -z "$(ls -A ./End_User_UMLGen 2>/dev/null)" ]; then
+                        rmdir ./End_User_UMLGen
+                        echo -e "   ${GREEN}[OK]${NC} Dossier End_User_UMLGen vide supprimé"
+                    fi
+                else
+                    echo -e "   ${YELLOW}ℹ${NC} Dossier End_User_UMLGen déjà absent"
+                fi
+                
+                echo -e "${GREEN}🗑️ Purge avancée terminée! Projet complètement remis à zéro.${NC}"
                 wait_for_user
                 ;;
             9)

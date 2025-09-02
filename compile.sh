@@ -16,7 +16,7 @@ echo -e "${CYAN}=== Script de compilation Java ==="
 # Définition des chemins
 JAVA_SRC_DIR="./Java_Code"
 CLASS_DEST_DIR="./Class"
-JAVAFX_LIB_DIR="./JavaFX_Lib"
+JAVAFX_LIB_DIR="./JavaFX_Lib/Lnx/lib"
 
 # Vérification de l'existence du dossier source
 if [ ! -d "$JAVA_SRC_DIR" ]; then

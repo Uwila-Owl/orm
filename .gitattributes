@@ -1,2 +1,5 @@
-JavaFX_Lib/libjfxwebkit.so filter=lfs diff=lfs merge=lfs -text
-JavaFx_Lib/libjfxwebkit.so filter=lfs diff=lfs merge=lfs -text
+*.sh text eol=lf
+*.bat text eol=crlf
+*.jar filter=lfs diff=lfs merge=lfs -text
+*.so filter=lfs diff=lfs merge=lfs -text
+*.class filter=lfs diff=lfs merge=lfs -text

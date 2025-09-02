@@ -1,3 +1,4 @@
+
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.input.KeyCode;
@@ -10,7 +11,7 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
-
+import javafx.scene.input.MouseEvent;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -53,8 +54,12 @@ public class Visuel {
                 boolean cleEtrangere = (boolean) attribut.get("cle_etrangere");
 
                 String prefix = "";
-                if (clePrimaire) prefix += "PK ";
-                if (cleEtrangere) prefix += "FK ";
+                if (clePrimaire) {
+                    prefix += "PK ";
+                }
+                if (cleEtrangere) {
+                    prefix += "FK ";
+                }
 
                 Text attrText = new Text(prefix + attrNom);
                 attrText.setX(10);
@@ -74,56 +79,49 @@ public class Visuel {
         double positionY = (double) entite.get("position_y");
         List<Map<String, Object>> attributs = (List<Map<String, Object>>) entite.get("attributs");
 
-        Rectangle rectPrincipal = new Rectangle(120, 60);
-        rectPrincipal.setFill(Color.WHITE);
-        rectPrincipal.setStroke(Color.BLACK);
-        rectPrincipal.setStrokeWidth(2);
+        double hauteur = 40 + (attributs != null ? attributs.size() : 0) * 20;
+        Rectangle rect = new Rectangle(160, hauteur);
+        rect.setFill(Color.WHITE);
+        rect.setStroke(Color.BLACK);
+        rect.setStrokeWidth(2);
 
         Text nomText = new Text(nom);
-        nomText.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-        nomText.setFill(Color.BLACK);
-        nomText.setX(60 - nomText.getBoundsInLocal().getWidth() / 2);
-        nomText.setY(35);
+        nomText.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+        nomText.setX(10);
+        nomText.setY(20);
 
-        entiteVisuelle.getChildren().addAll(rectPrincipal, nomText);
+        Line separateur = new Line(5, 25, 155, 25);
 
-        double angleStep = 360.0 / Math.max((attributs != null ? attributs.size() : 0), 1);
-        double rayon = 80;
+        entiteVisuelle.getChildren().addAll(rect, nomText, separateur);
 
+        int yAttrib = 45;
         if (attributs != null) {
-            for (int i = 0; i < attributs.size(); i++) {
-                Map<String, Object> attribut = attributs.get(i);
+            for (Map<String, Object> attribut : attributs) {
                 String attrNom = (String) attribut.get("nom");
                 boolean clePrimaire = (boolean) attribut.get("cle_primaire");
                 boolean cleEtrangere = (boolean) attribut.get("cle_etrangere");
 
-                double angle = Math.toRadians(i * angleStep);
-                double attrX = 60 + rayon * Math.cos(angle);
-                double attrY = 30 + rayon * Math.sin(angle);
+                String prefix = "";
+                if (clePrimaire) {
+                    prefix += "PK ";
+                }
+                if (cleEtrangere) {
+                    prefix += "FK ";
+                }
 
-                Ellipse ellipseAttr = new Ellipse(25, 15);
-                ellipseAttr.setFill(clePrimaire ? Color.GOLD : (cleEtrangere ? Color.LIGHTCORAL : Color.LIGHTGREEN));
-                ellipseAttr.setStroke(Color.BLACK);
-                ellipseAttr.setStrokeWidth(clePrimaire ? 3 : 1);
-                ellipseAttr.setCenterX(attrX);
-                ellipseAttr.setCenterY(attrY);
+                Text attrText = new Text(prefix + attrNom);
+                attrText.setX(10);
+                attrText.setY(yAttrib);
+                attrText.setFill(clePrimaire ? Color.RED : (cleEtrangere ? Color.ORANGE : Color.BLACK));
+                attrText.setFont(Font.font("Arial", clePrimaire ? FontWeight.BOLD : FontWeight.NORMAL, 12));
 
-                Text attrText = new Text(attrNom);
-                attrText.setFont(Font.font("Arial", clePrimaire ? FontWeight.BOLD : FontWeight.NORMAL, 10));
-                attrText.setFill(Color.BLACK);
-                attrText.setX(attrX - attrText.getBoundsInLocal().getWidth() / 2);
-                attrText.setY(attrY + 3);
-
-                Line ligneAttr = new Line();
-                ligneAttr.setStartX(60);
-                ligneAttr.setStartY(30);
-                ligneAttr.setEndX(attrX);
-                ligneAttr.setEndY(attrY);
-                ligneAttr.setStroke(Color.BLACK);
-
-                entiteVisuelle.getChildren().addAll(ligneAttr, ellipseAttr, attrText);
+                entiteVisuelle.getChildren().add(attrText);
+                yAttrib += 18;
             }
         }
+
+        entiteVisuelle.setLayoutX(positionX);
+        entiteVisuelle.setLayoutY(positionY);
     }
 
     public void zoomSouris(ScrollEvent event, Node node) {
