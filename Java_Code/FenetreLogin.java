@@ -1,9 +1,12 @@
 
 import javax.swing.*;
-import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -16,6 +19,7 @@ public class FenetreLogin extends JFrame {
     private JTextField idField;
     private JPasswordField passwordField;
     private ConnexionBdd connexionBdd;
+    private JPanel connectionIndicator; // indicateur lumineux
 
     public FenetreLogin() {
         super("Authentification");
@@ -29,25 +33,42 @@ public class FenetreLogin extends JFrame {
         Color btnColor = Color.decode("#3E5871");
         Color textColor = Color.decode("#EAECEE");
 
+        // Panel principal avec GridBagLayout
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(bgColor);
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
+        // Label ID
         JLabel idLabel = new JLabel("ID:");
         idLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        idField = new JTextField(15);
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.gridwidth = 2;
+        panel.add(idLabel, gbc);
 
+        // Champ ID
+        idField = new JTextField(15);
+        gbc.gridy = 1;
+        panel.add(idField, gbc);
+
+        // Label mot de passe
         JLabel passwordLabel = new JLabel("Mot de passe:");
         passwordLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        passwordField = new JPasswordField(15);
+        gbc.gridy = 2;
+        panel.add(passwordLabel, gbc);
 
+        // Champ mot de passe
+        passwordField = new JPasswordField(15);
+        gbc.gridy = 3;
+        panel.add(passwordField, gbc);
+
+        // Boutons
         JButton okButton = new JButton("OK");
         JButton createButton = new JButton("Créer");
         JButton cancelButton = new JButton("Annuler");
 
-        // Style des boutons
         JButton[] buttons = {okButton, createButton, cancelButton};
         for (JButton b : buttons) {
             b.setBackground(btnColor);
@@ -56,23 +77,9 @@ public class FenetreLogin extends JFrame {
             b.setFont(new Font("Arial", Font.BOLD, 14));
         }
 
-        // Placement des composants
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.gridwidth = 2;
-        panel.add(idLabel, gbc);
-
-        gbc.gridy = 1;
-        panel.add(idField, gbc);
-
-        gbc.gridy = 2;
-        panel.add(passwordLabel, gbc);
-
-        gbc.gridy = 3;
-        panel.add(passwordField, gbc);
-
-        gbc.gridy = 4;
         gbc.gridwidth = 1;
+        gbc.gridy = 4;
+        gbc.gridx = 0;
         panel.add(okButton, gbc);
 
         gbc.gridx = 1;
@@ -83,7 +90,36 @@ public class FenetreLogin extends JFrame {
         gbc.gridwidth = 2;
         panel.add(cancelButton, gbc);
 
-        add(panel);
+        // Ajout du panel principal à la JFrame
+        setContentPane(panel);
+
+        // Création de l'indicateur lumineux (20x20 px)
+        connectionIndicator = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                g.setColor(getBackground());
+                g.fillOval(0, 0, getWidth(), getHeight());
+            }
+        };
+        connectionIndicator.setSize(20, 20);
+        connectionIndicator.setOpaque(false);
+
+        // Tester la connexion et définir la couleur
+        try (Connection testConn = connexionBdd.getConnection()) {
+            if (testConn != null && !testConn.isClosed()) {
+                connectionIndicator.setBackground(Color.GREEN);
+            } else {
+                connectionIndicator.setBackground(Color.RED);
+            }
+        } catch (SQLException e) {
+            connectionIndicator.setBackground(Color.RED);
+        }
+
+        // Ajouter l'indicateur dans la couche supérieure (layered pane)
+        JLayeredPane layeredPane = getLayeredPane();
+        layeredPane.add(connectionIndicator, JLayeredPane.PALETTE_LAYER);
+        connectionIndicator.setLocation(5, 5); // position en haut à gauche avec un petit décalage
 
         // Action commune pour OK et Entrée
         Action okAction = new AbstractAction() {
