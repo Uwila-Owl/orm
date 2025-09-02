@@ -159,7 +159,7 @@ main() {
                 wait_for_user
                 ;;
             3) 
-                git add -A 
+                git add .
                 wait_for_user
                 ;;
             4) 

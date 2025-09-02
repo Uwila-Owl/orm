@@ -122,7 +122,8 @@ show_menu() {
     echo -e "   ${CYAN}5.${NC} 🧹 Purger le projet (nettoyer Class + JAR)"
     echo -e "   ${CYAN}6.${NC} 📦 Générer package client (create_client.sh)"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo -e "   ${CYAN}7.${NC} 🗑️ Purge avancée (+ version client)"
+    echo -e "   ${CYAN}7.${NC} 🔄 Gestion Git" 
+    echo -e "   ${CYAN}8.${NC} 🗑️ Purge avancée (+ version client)"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo -e "   ${CYAN}9.${NC} 📊 Rafraîchir l'état"
     echo -e "   ${CYAN}0.${NC} ❌ Quitter"
@@ -241,6 +242,10 @@ main() {
                 wait_for_user
                 ;;
             7)
+                execute_script "git_menu.sh" "Menu Git"
+                wait_for_user
+                ;;
+            8)
                 echo -e "${BLUE}🗑️ Purge avancée du projet...${NC}"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 
