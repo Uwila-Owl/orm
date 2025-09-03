@@ -12,6 +12,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.application.Platform;
 import javafx.embed.swing.JFXPanel;
+import java.awt.Cursor;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 public class FenetreLogin extends JFrame {
 
@@ -26,7 +29,7 @@ public class FenetreLogin extends JFrame {
         super("Authentification");
         connexionBdd = new ConnexionBdd();
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(450, 320);
+        setSize(520, 380);
         setLocationRelativeTo(null);
 
         // Couleurs
@@ -59,6 +62,29 @@ public class FenetreLogin extends JFrame {
         passwordLabel.setHorizontalAlignment(SwingConstants.CENTER);
         gbc.gridy = 2;
         panel.add(passwordLabel, gbc);
+
+        // Lien "Mot de passe oublié ?"
+        JLabel forgotPasswordLabel = new JLabel("<HTML><U>Mot de passe oublié ?</U></HTML>");
+        forgotPasswordLabel.setForeground(Color.BLUE);
+        forgotPasswordLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        forgotPasswordLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        GridBagConstraints gbcForgot = new GridBagConstraints();
+        gbcForgot.gridx = 0;
+        gbcForgot.gridy = 7;
+        gbcForgot.gridwidth = 2;
+        gbcForgot.insets = new Insets(5, 10, 10, 10);
+        gbcForgot.fill = GridBagConstraints.HORIZONTAL;
+        panel.add(forgotPasswordLabel, gbcForgot);
+
+        forgotPasswordLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                // Ouvre la fenêtre MdpOublie
+                SwingUtilities.invokeLater(() -> {
+                    new MdpOublie(FenetreLogin.this, connexionBdd);
+                });
+            }
+        });
 
         // Champ mot de passe
         passwordField = new JPasswordField(15);
@@ -118,21 +144,72 @@ public class FenetreLogin extends JFrame {
         connectionIndicator.setSize(20, 20);
         connectionIndicator.setOpaque(false);
 
-        // Tester la connexion et définir la couleur
+        // Tester la connexion et définir la couleur et tooltip
         try (Connection testConn = connexionBdd.getConnection()) {
             if (testConn != null && !testConn.isClosed()) {
                 connectionIndicator.setBackground(Color.GREEN);
+                connectionIndicator.setToolTipText("Connexion à la Base de donnée : ok");
             } else {
                 connectionIndicator.setBackground(Color.RED);
+                connectionIndicator.setToolTipText("Connexion à la Base de donnée : ko");
             }
         } catch (SQLException e) {
             connectionIndicator.setBackground(Color.RED);
+            connectionIndicator.setToolTipText("Connexion à la Base de donnée : ko");
         }
 
         // Ajouter l'indicateur dans la couche supérieure (layered pane)
         JLayeredPane layeredPane = getLayeredPane();
         layeredPane.add(connectionIndicator, JLayeredPane.PALETTE_LAYER);
         connectionIndicator.setLocation(5, 5); // position en haut à gauche avec un petit décalage
+
+        // === Ajout du lien "Nous Contacter" en haut à droite ===
+        final int margin = 10;
+        JLabel contactLabel = new JLabel("<HTML><U>Nous Contacter</U></HTML>");
+        contactLabel.setForeground(Color.BLUE);
+        contactLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        layeredPane.add(contactLabel, JLayeredPane.PALETTE_LAYER);
+
+// fonction pour bien placer le label
+        Runnable placeContact = () -> {
+            Dimension pref = contactLabel.getPreferredSize();
+            contactLabel.setSize(pref); // indispensable pour éviter le troncage
+            int x = layeredPane.getWidth() - pref.width - margin; // largeur réelle du layeredPane
+            int y = margin;
+            contactLabel.setLocation(Math.max(margin, x), y);
+        };
+
+// position initiale après rendu
+        SwingUtilities.invokeLater(placeContact);
+
+// repositionnement dynamique si la fenêtre est redimensionnée
+        layeredPane.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                placeContact.run();
+            }
+        });
+
+// Action au clic → ouverture de Contact.java
+        contactLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                SwingUtilities.invokeLater(() -> {
+                    new Contact(FenetreLogin.this); // adapte si ton constructeur diffère
+                });
+            }
+        });
+
+        // Action au clic pour ouvrir la fenêtre Contact
+        contactLabel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                SwingUtilities.invokeLater(() -> {
+                    new Contact(FenetreLogin.this);
+                    // ou new Contact() si ton constructeur n'attend pas de paramètre
+                });
+            }
+        });
 
         // Action commune pour OK et Entrée
         Action okAction = new AbstractAction() {
@@ -320,7 +397,7 @@ public class FenetreLogin extends JFrame {
         String passwordTemporaire = "changeme"; // ou générer un mot de passe aléatoire
 
         try (Connection connection = connexionBdd.getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(
-                "INSERT INTO utilisateurs (ID, Password, active, supvis, date, nom, prénom, email, id_discord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                "INSERT INTO utilisateurs (ID, Password, active, supvis, date, nom, prenom, email, id_discord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
             preparedStatement.setString(1, id);
             preparedStatement.setString(2, passwordTemporaire);
             preparedStatement.setBoolean(3, true);
