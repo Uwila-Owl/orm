@@ -3,12 +3,19 @@ import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Region;
+import javafx.geometry.VPos;
+import javafx.scene.text.TextBoundsType;
+import javafx.scene.text.TextAlignment;
+import javafx.scene.text.Text;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
-import javafx.scene.text.Text;
+import javafx.scene.shape.Ellipse;
+import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Font;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.ScrollEvent;
-import javafx.scene.shape.Ellipse;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 
 public class ZoneModelisation extends Pane {
 
@@ -25,7 +34,11 @@ public class ZoneModelisation extends Pane {
     private boolean isUML = true;
     private SelectionListener selectionListener;
     private static final Logger LOGGER = Logger.getLogger(ZoneModelisation.class.getName());
-
+    private Canvas gridCanvas;
+    private Group positionCurseurGroup;
+    private Text positionCurseurText;
+    private Rectangle positionCurseurBackground;
+    private boolean snapActive = false; // Snap désactivé par défaut
     private EntiteDAO entiteDAO;
     private AttributDAO attributDAO;
     private Visuel visuel;
@@ -35,14 +48,79 @@ public class ZoneModelisation extends Pane {
         void onSelection(Map<String, Object> entite);
     }
 
+    public void setSnapActive(boolean active) {
+        this.snapActive = active;
+    }
+
     public ZoneModelisation() {
         super();
         this.entiteDAO = new EntiteDAO();
         this.attributDAO = new AttributDAO();
         this.visuel = new Visuel();
+
+        // Initialisation du canvas pour le quadrillage
+        gridCanvas = new Canvas();
+        this.getChildren().add(0, gridCanvas); // Ajout en fond (index 0)
+        // Ecouteurs pour redimensionnement
+        this.widthProperty().addListener((obs, oldVal, newVal) -> {
+            gridCanvas.setWidth(newVal.doubleValue());
+            drawGrid();
+        });
+        this.heightProperty().addListener((obs, oldVal, newVal) -> {
+            gridCanvas.setHeight(newVal.doubleValue());
+            drawGrid();
+        });
+
         ChargerEntites("UML");
         this.addEventFilter(ScrollEvent.SCROLL, this::zoomSouris);
         this.addEventFilter(KeyEvent.KEY_PRESSED, this::toucheClavAppui);
+
+        // --- Initialisation du rectangle position curseur ---
+        positionCurseurText = new Text("X: 0 Y: 0");
+        positionCurseurText.setFont(Font.font("Arial", 12));
+        positionCurseurText.setFill(Color.BLACK);
+        positionCurseurText.setTextOrigin(VPos.TOP);
+        positionCurseurText.setBoundsType(TextBoundsType.VISUAL);
+        positionCurseurBackground = new Rectangle();
+        positionCurseurBackground.setFill(Color.rgb(255, 255, 255, 0.7));
+        positionCurseurBackground.setStroke(Color.GRAY);
+        positionCurseurBackground.setStrokeWidth(1);
+        positionCurseurBackground.setArcWidth(8);
+        positionCurseurBackground.setArcHeight(8);
+        positionCurseurGroup = new Group(positionCurseurBackground, positionCurseurText);
+        this.getChildren().add(positionCurseurGroup);
+        this.widthProperty().addListener((obs, oldVal, newVal) -> repositionnerPositionCurseur());
+        this.heightProperty().addListener((obs, oldVal, newVal) -> repositionnerPositionCurseur());
+        this.setOnMouseMoved(event -> {
+            int x = (int) event.getX();
+            int y = (int) event.getY();
+            positionCurseurText.setText("X: " + x + " Y: " + y);
+            double padding = 6;
+            double textWidth = positionCurseurText.getLayoutBounds().getWidth();
+            double textHeight = positionCurseurText.getLayoutBounds().getHeight();
+            positionCurseurBackground.setWidth(textWidth + 2 * padding);
+            positionCurseurBackground.setHeight(textHeight + 2 * padding);
+            positionCurseurText.setLayoutX(padding);
+            positionCurseurText.setLayoutY(padding);
+            repositionnerPositionCurseur();
+        });
+    }
+
+    // Méthode pour dessiner le quadrillage
+    private void drawGrid() {
+        double width = gridCanvas.getWidth();
+        double height = gridCanvas.getHeight();
+        GraphicsContext gc = gridCanvas.getGraphicsContext2D();
+        gc.clearRect(0, 0, width, height);
+        gc.setStroke(Color.rgb(100, 149, 237, 0.2)); // Bleu clair avec alpha 20%
+        gc.setLineWidth(1);
+        // Quadrillage tous les 10 pixels
+        for (int x = 0; x <= width; x += 10) {
+            gc.strokeLine(x, 0, x, height);
+        }
+        for (int y = 0; y <= height; y += 10) {
+            gc.strokeLine(0, y, width, y);
+        }
     }
 
     public void setSelectionListener(SelectionListener listener) {
@@ -51,7 +129,17 @@ public class ZoneModelisation extends Pane {
 
     public void setTypeSchema(boolean isUML) {
         this.isUML = isUML;
-        this.getChildren().clear();
+
+        // Supprimer uniquement les entités et lignes, pas le quadrillage ni le curseur
+        // On peut faire une copie des enfants à supprimer
+        List<Node> nodesToRemove = new ArrayList<>();
+        for (Node node : this.getChildren()) {
+            if (node != gridCanvas && node != positionCurseurGroup) {
+                nodesToRemove.add(node);
+            }
+        }
+        this.getChildren().removeAll(nodesToRemove);
+
         entiteToGroup.clear();
         entiteById.clear();
         lignesAssociees.clear();
@@ -151,6 +239,12 @@ public class ZoneModelisation extends Pane {
 
         // Charger relations depuis la BDD
         chargerRelationsDepuisBDD();
+
+        // Forcer la mise à jour des positions des lignes après chargement
+        for (LigneAssociee la : lignesAssociees) {
+            la.MajPosition();
+        }
+
     }
 
     public void chargerRelationsDepuisBDD() {
@@ -263,13 +357,13 @@ public class ZoneModelisation extends Pane {
 
     private void ajouterEntiteUML(Map<String, Object> entite) {
         Group entiteVisuelle = new Group();
-        visuel.ajouterEntiteUML(entiteVisuelle, entite);
+        visuel.ajouterEntite(entiteVisuelle, entite, "UML");
         setupEntiteInteraction(entiteVisuelle, entite);
     }
 
     private void ajouterEntiteERD(Map<String, Object> entite) {
         Group entiteVisuelle = new Group();
-        visuel.ajouterEntiteERD(entiteVisuelle, entite);
+        visuel.ajouterEntite(entiteVisuelle, entite, "ERD");
         setupEntiteInteraction(entiteVisuelle, entite);
     }
 
@@ -292,8 +386,17 @@ public class ZoneModelisation extends Pane {
 
         // Drag & drop visuel
         entiteVisuelle.setOnMouseDragged(event -> {
-            entiteVisuelle.setLayoutX(event.getSceneX() + dragDelta.x);
-            entiteVisuelle.setLayoutY(event.getSceneY() + dragDelta.y);
+            double newX = event.getSceneX() + dragDelta.x;
+            double newY = event.getSceneY() + dragDelta.y;
+
+            if (snapActive) {
+                // Snap magnétique sur grille 10 px
+                newX = Math.round(newX / 10) * 10;
+                newY = Math.round(newY / 10) * 10;
+            }
+
+            entiteVisuelle.setLayoutX(newX);
+            entiteVisuelle.setLayoutY(newY);
 
             // Mise à jour temporaire du modèle (Map)
             entite.put("position_x", entiteVisuelle.getLayoutX());
@@ -424,6 +527,14 @@ public class ZoneModelisation extends Pane {
     }
 
     private void toucheClavAppui(KeyEvent event) {
+        // Intercepter la touche S pour toggle snap
+        if (event.getCode() == KeyCode.S) {
+            snapActive = !snapActive;
+            System.out.println("Snap magnétique " + (snapActive ? "activé" : "désactivé"));
+            event.consume(); // optionnel : empêche propagation si besoin
+            return; // on ne transmet pas à visuel car c’est une touche spécifique ici
+        }
+        // Sinon, déléguer à visuel pour Ctrl+Z / Ctrl+Y
         visuel.toucheClavAppui(event);
     }
 
@@ -598,4 +709,19 @@ public class ZoneModelisation extends Pane {
         }
 
     }
+
+    private void repositionnerPositionCurseur() {
+        double paddingFromEdge = 10;
+        double width = this.getWidth();
+        double height = this.getHeight();
+
+        double groupWidth = positionCurseurBackground.getWidth();
+        double groupHeight = positionCurseurBackground.getHeight();
+
+        if (width > 0 && height > 0) {
+            positionCurseurGroup.setLayoutX(width - groupWidth - paddingFromEdge);
+            positionCurseurGroup.setLayoutY(height - groupHeight - paddingFromEdge);
+        }
+    }
+
 }

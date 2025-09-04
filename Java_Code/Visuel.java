@@ -16,86 +16,57 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import javafx.geometry.VPos;
+import javafx.scene.text.TextAlignment;
+import javafx.scene.text.FontPosture;
 
 public class Visuel {
 
     private double zoomFactor = 1.0;
 
-    public void ajouterEntiteUML(Group entiteVisuelle, Map<String, Object> entite) {
+    public void ajouterEntite(Group entiteVisuelle, Map<String, Object> entite, String typeSchema) {
         String nom = (String) entite.get("nom");
         double positionX = (double) entite.get("position_x");
         double positionY = (double) entite.get("position_y");
         List<Map<String, Object>> attributs = (List<Map<String, Object>>) entite.get("attributs");
 
-        Rectangle rect = new Rectangle(140, 30 + (attributs != null ? attributs.size() : 0) * 20 + 20);
-        rect.setFill(Color.LIGHTBLUE);
-        rect.setStroke(Color.DARKBLUE);
-        rect.setStrokeWidth(2);
+        // Dimensions
+        int largeur = 160;
+        int hauteurNom = 30;
+        int hauteurAttrib = (attributs != null ? attributs.size() : 0) * 20;
+        int hauteurTotale = hauteurNom + hauteurAttrib + 10;
 
-        Text nomText = new Text(nom);
-        nomText.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-        nomText.setFill(Color.DARKBLUE);
-        nomText.setX(10);
-        nomText.setY(20);
-
-        Line separateur = new Line(5, 25, 135, 25);
-        separateur.setStroke(Color.DARKBLUE);
-
-        entiteVisuelle.getChildren().addAll(rect, nomText, separateur);
-
-        int yAttrib = 45;
-        if (attributs != null) {
-            // Trier les attributs pour que les clés primaires apparaissent en premier
-            attributs.sort(Comparator.comparing(attribut -> !(boolean) attribut.get("cle_primaire")));
-
-            for (Map<String, Object> attribut : attributs) {
-                String attrNom = (String) attribut.get("nom");
-                boolean clePrimaire = (boolean) attribut.get("cle_primaire");
-                boolean cleEtrangere = (boolean) attribut.get("cle_etrangere");
-
-                String prefix = "";
-                if (clePrimaire) {
-                    prefix += "PK ";
-                }
-                if (cleEtrangere) {
-                    prefix += "FK ";
-                }
-
-                Text attrText = new Text(prefix + attrNom);
-                attrText.setX(10);
-                attrText.setY(yAttrib);
-                attrText.setFill(clePrimaire ? Color.RED : (cleEtrangere ? Color.ORANGE : Color.BLACK));
-                attrText.setFont(Font.font("Arial", clePrimaire ? FontWeight.BOLD : FontWeight.NORMAL, 11));
-
-                entiteVisuelle.getChildren().add(attrText);
-                yAttrib += 18;
-            }
-        }
-    }
-
-    public void ajouterEntiteERD(Group entiteVisuelle, Map<String, Object> entite) {
-        String nom = (String) entite.get("nom");
-        double positionX = (double) entite.get("position_x");
-        double positionY = (double) entite.get("position_y");
-        List<Map<String, Object>> attributs = (List<Map<String, Object>>) entite.get("attributs");
-
-        double hauteur = 40 + (attributs != null ? attributs.size() : 0) * 20;
-        Rectangle rect = new Rectangle(160, hauteur);
+        // Rectangle fond blanc + bordure noire 2px
+        Rectangle rect = new Rectangle(largeur, hauteurTotale);
         rect.setFill(Color.WHITE);
         rect.setStroke(Color.BLACK);
         rect.setStrokeWidth(2);
 
+        // Texte nom centré horizontalement et verticalement dans la zone nom
         Text nomText = new Text(nom);
         nomText.setFont(Font.font("Arial", FontWeight.BOLD, 16));
-        nomText.setX(10);
-        nomText.setY(20);
+        nomText.setFill(Color.BLACK);
+        nomText.setTextAlignment(TextAlignment.CENTER);
+        nomText.setTextOrigin(VPos.CENTER);
 
-        Line separateur = new Line(5, 25, 155, 25);
+        // Centrer horizontalement en positionnant X à la moitié moins la moitié de la largeur du texte
+        double textWidth = nomText.getLayoutBounds().getWidth();
+        nomText.setX((largeur - textWidth) / 2);
+        nomText.setY(hauteurNom / 2.0);
+        nomText.setTextOrigin(VPos.CENTER);
+
+        // Ligne séparatrice sous le nom
+        Line separateur = new Line(5, hauteurNom, largeur - 5, hauteurNom);
+        separateur.setStroke(Color.BLACK);
 
         entiteVisuelle.getChildren().addAll(rect, nomText, separateur);
 
-        int yAttrib = 45;
+        // Ajout des attributs
+        int yAttrib = hauteurNom + 20;
         if (attributs != null) {
+            // Trier pour que clés primaires en premier
+            attributs.sort(Comparator.comparing(attrib -> !(boolean) attrib.get("cle_primaire")));
+
             for (Map<String, Object> attribut : attributs) {
                 String attrNom = (String) attribut.get("nom");
                 boolean clePrimaire = (boolean) attribut.get("cle_primaire");
@@ -112,14 +83,19 @@ public class Visuel {
                 Text attrText = new Text(prefix + attrNom);
                 attrText.setX(10);
                 attrText.setY(yAttrib);
-                attrText.setFill(clePrimaire ? Color.RED : (cleEtrangere ? Color.ORANGE : Color.BLACK));
-                attrText.setFont(Font.font("Arial", clePrimaire ? FontWeight.BOLD : FontWeight.NORMAL, 12));
+                attrText.setFill(Color.BLACK);
+
+                // Style : gras si clé primaire, italique si clé étrangère
+                FontWeight fw = clePrimaire ? FontWeight.BOLD : FontWeight.NORMAL;
+                FontPosture fp = cleEtrangere ? FontPosture.ITALIC : FontPosture.REGULAR;
+                attrText.setFont(Font.font("Arial", fw, fp, 12));
 
                 entiteVisuelle.getChildren().add(attrText);
                 yAttrib += 18;
             }
         }
 
+        // Positionnement du groupe
         entiteVisuelle.setLayoutX(positionX);
         entiteVisuelle.setLayoutY(positionY);
     }

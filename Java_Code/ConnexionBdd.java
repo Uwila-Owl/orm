@@ -7,8 +7,8 @@ import java.util.logging.Logger;
 
 public class ConnexionBdd {
 
-    private static final String URL = "jdbc:postgresql://37.187.123.39:5432/GenerateurUML";
-    private static final String USER = "ied_orm";
+    private static final String URL = "jdbc:postgresql://141.253.96.168:5432/GenerateurUML";
+    private static final String USER = "postgres";
     private static final String PASSWORD = "i3d_0rm2025";
     private static final Logger LOGGER = Logger.getLogger(ConnexionBdd.class.getName());
 

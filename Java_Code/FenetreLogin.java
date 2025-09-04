@@ -1,4 +1,5 @@
 
+import javafx.application.Application;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -79,7 +80,6 @@ public class FenetreLogin extends JFrame {
         forgotPasswordLabel.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
-                // Ouvre la fenêtre MdpOublie
                 SwingUtilities.invokeLater(() -> {
                     new MdpOublie(FenetreLogin.this, connexionBdd);
                 });
@@ -170,7 +170,7 @@ public class FenetreLogin extends JFrame {
         contactLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         layeredPane.add(contactLabel, JLayeredPane.PALETTE_LAYER);
 
-// fonction pour bien placer le label
+        // fonction pour bien placer le label
         Runnable placeContact = () -> {
             Dimension pref = contactLabel.getPreferredSize();
             contactLabel.setSize(pref); // indispensable pour éviter le troncage
@@ -179,10 +179,10 @@ public class FenetreLogin extends JFrame {
             contactLabel.setLocation(Math.max(margin, x), y);
         };
 
-// position initiale après rendu
+        // position initiale après rendu
         SwingUtilities.invokeLater(placeContact);
 
-// repositionnement dynamique si la fenêtre est redimensionnée
+        // repositionnement dynamique si la fenêtre est redimensionnée
         layeredPane.addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentResized(java.awt.event.ComponentEvent e) {
@@ -190,23 +190,12 @@ public class FenetreLogin extends JFrame {
             }
         });
 
-// Action au clic → ouverture de Contact.java
+        // Action au clic → ouverture de Contact.java
         contactLabel.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
                 SwingUtilities.invokeLater(() -> {
                     new Contact(FenetreLogin.this); // adapte si ton constructeur diffère
-                });
-            }
-        });
-
-        // Action au clic pour ouvrir la fenêtre Contact
-        contactLabel.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                SwingUtilities.invokeLater(() -> {
-                    new Contact(FenetreLogin.this);
-                    // ou new Contact() si ton constructeur n'attend pas de paramètre
                 });
             }
         });
@@ -223,28 +212,34 @@ public class FenetreLogin extends JFrame {
                     return;
                 }
 
-                if (authentifier(id, password)) {
-                    messageLabel.setText("Authentification réussie! Fermeture automatique dans 5 secondes.");
-                    idField.setEnabled(false);
-                    passwordField.setEnabled(false);
-                    okButton.setEnabled(false);
-                    createButton.setEnabled(false);
-                    cancelButton.setEnabled(false);
+                Boolean isSuperviseur = authentifierEtVerifierSupvis(id, password);
+                if (isSuperviseur == null) {
+                    JOptionPane.showMessageDialog(FenetreLogin.this, "Authentification échouée.");
+                    return;
+                }
 
-                    Timer timer = new Timer(5000, evt -> {
-                        FenetreLogin.this.dispose();
-                        SwingUtilities.invokeLater(() -> {
-                            Platform.runLater(() -> {
-                                new InterfaceGenerateurUML().start(new javafx.stage.Stage());
-                            });
+                messageLabel.setText("Authentification réussie! Fermeture automatique dans 5 secondes.");
+                idField.setEnabled(false);
+                passwordField.setEnabled(false);
+                okButton.setEnabled(false);
+                createButton.setEnabled(false);
+                cancelButton.setEnabled(false);
+
+                Timer timer = new Timer(5000, evt -> {
+                    FenetreLogin.this.dispose();
+                    SwingUtilities.invokeLater(() -> {
+                        Platform.runLater(() -> {
+                            if (isSuperviseur) {
+                                SwingUtilities.invokeLater(() -> new Supervision());
+                            } else {
+                                // Lancer l'application JavaFX correctement
+                                new Thread(() -> Application.launch(InterfaceGenerateurUML.class)).start();
+                            }
                         });
                     });
-                    timer.setRepeats(false);
-                    timer.start();
-
-                } else {
-                    JOptionPane.showMessageDialog(FenetreLogin.this, "Authentification échouée.");
-                }
+                });
+                timer.setRepeats(false);
+                timer.start();
             }
         };
 
@@ -260,23 +255,35 @@ public class FenetreLogin extends JFrame {
         setVisible(true);
     }
 
-    private boolean authentifier(String id, String password) {
+    /**
+     * Authentifie l'utilisateur et retourne si il est superviseur (supvis =
+     * true).
+     *
+     * @param id ID utilisateur
+     * @param password mot de passe
+     * @return Boolean true si superviseur, false sinon, null si échec auth
+     */
+    private Boolean authentifierEtVerifierSupvis(String id, String password) {
         try (Connection connection = connexionBdd.getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(
-                "SELECT * FROM utilisateurs WHERE ID = ? AND Password = ? AND active = TRUE")) {
+                "SELECT supvis FROM utilisateurs WHERE ID = ? AND Password = ? AND active = TRUE")) {
             preparedStatement.setString(1, id);
             preparedStatement.setString(2, password);
             ResultSet resultSet = preparedStatement.executeQuery();
-            return resultSet.next();
+            if (resultSet.next()) {
+                return resultSet.getBoolean("supvis");
+            } else {
+                return null;
+            }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Erreur lors de l'authentification: " + e.getMessage(), e);
             JOptionPane.showMessageDialog(this, "Erreur lors de la vérification de l'utilisateur.");
-            return false;
+            return null;
         }
     }
 
     private void ouvrirFenetreCreation() {
         JDialog creationDialog = new JDialog(this, "Création d'utilisateur", true);
-        creationDialog.setSize(400, 350);
+        creationDialog.setSize(400, 400); // un peu plus grand pour le champ mot de passe
         creationDialog.setLocationRelativeTo(this);
 
         JPanel panel = new JPanel(new GridBagLayout());
@@ -307,6 +314,9 @@ public class FenetreLogin extends JFrame {
 
         JLabel idDiscordLabel = new JLabel("ID Discord:");
         JTextField idDiscordField = new JTextField(15);
+
+        JLabel passwordLabel = new JLabel("Mot de passe:");
+        JPasswordField passwordField = new JPasswordField(15);
 
         JButton createButton = new JButton("Créer");
 
@@ -359,6 +369,15 @@ public class FenetreLogin extends JFrame {
 
         gbc.gridx = 0;
         gbc.gridy = 5;
+        gbc.gridwidth = 1;
+        panel.add(passwordLabel, gbc);
+
+        gbc.gridx = 1;
+        gbc.gridwidth = 2;
+        panel.add(passwordField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 6;
         gbc.gridwidth = 3;
         gbc.anchor = GridBagConstraints.CENTER;
         panel.add(createButton, gbc);
@@ -371,19 +390,19 @@ public class FenetreLogin extends JFrame {
             String prenom = prenomField.getText().trim();
             String email = emailField.getText().trim();
             String idDiscord = idDiscordField.getText().trim();
+            String password = new String(passwordField.getPassword()).trim();
 
             // Validation des champs obligatoires
-            if (id.isEmpty() || nom.isEmpty() || prenom.isEmpty() || email.isEmpty()) {
-                JOptionPane.showMessageDialog(creationDialog, "Veuillez remplir tous les champs obligatoires (ID, Nom, Prénom, Email).");
+            if (id.isEmpty() || nom.isEmpty() || prenom.isEmpty() || email.isEmpty() || password.isEmpty()) {
+                JOptionPane.showMessageDialog(creationDialog, "Veuillez remplir tous les champs obligatoires (ID, Nom, Prénom, Email, Mot de passe).");
                 return;
             }
 
-            if (creerUtilisateur(id, nom, prenom, email, idDiscord)) {
+            if (creerUtilisateur(id, nom, prenom, email, idDiscord, password)) {
                 JOptionPane.showMessageDialog(creationDialog, "Utilisateur créé avec succès!");
                 creationDialog.dispose();
-                idField.setText(id);
                 this.idField.setText(id);
-                this.passwordField.setText(""); // mot de passe non modifié ici
+                this.passwordField.setText(password);
             } else {
                 JOptionPane.showMessageDialog(creationDialog, "Erreur lors de la création de l'utilisateur.");
             }
@@ -392,14 +411,11 @@ public class FenetreLogin extends JFrame {
         creationDialog.setVisible(true);
     }
 
-    private boolean creerUtilisateur(String id, String nom, String prenom, String email, String idDiscord) {
-        // Ici on génère un mot de passe temporaire ou on peut demander un mot de passe dans la création (à adapter)
-        String passwordTemporaire = "changeme"; // ou générer un mot de passe aléatoire
-
+    private boolean creerUtilisateur(String id, String nom, String prenom, String email, String idDiscord, String password) {
         try (Connection connection = connexionBdd.getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(
                 "INSERT INTO utilisateurs (ID, Password, active, supvis, date, nom, prenom, email, id_discord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
             preparedStatement.setString(1, id);
-            preparedStatement.setString(2, passwordTemporaire);
+            preparedStatement.setString(2, password);
             preparedStatement.setBoolean(3, true);
             preparedStatement.setBoolean(4, false);
             preparedStatement.setTimestamp(5, Timestamp.valueOf(LocalDateTime.now()));
