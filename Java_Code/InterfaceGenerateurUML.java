@@ -18,6 +18,7 @@ public class InterfaceGenerateurUML extends Application {
     private ToggleButton btnUML;
     private ToggleButton btnERD;
     private Stage primaryStage;
+    private BarreOutils leftBar;
 
     @Override
 public void start(Stage primaryStage) {
@@ -47,7 +48,7 @@ public void start(Stage primaryStage) {
     centerPane.setStyle("-fx-background-color: white;");
     centerPane.setPrefSize(Double.MAX_VALUE, Double.MAX_VALUE); // occuper toute la place
 
-    VBox leftBar = createBarreOutils();
+    leftBar = (BarreOutils) createBarreOutils();
     leftBar.setMinWidth(250);
     leftBar.setPrefWidth(290);
 
@@ -122,24 +123,29 @@ public void start(Stage primaryStage) {
 
         Optional<ButtonType> result = alert.showAndWait();
 
-        if (result.isPresent()) {
-            if (result.get() == buttonTypeContinue) {
-                ZoneModelisation.setTypeSchema(willBeUML);
-            } else {
-                if (wasUML) {
-                    btnUML.setSelected(true);
-                } else {
-                    btnERD.setSelected(true);
-                }
-            }
+       if (result.isPresent()) {
+    if (result.get() == buttonTypeContinue) {
+        // 🔹 Changement du type de schéma
+        ZoneModelisation.setTypeSchema(willBeUML);
+
+        // 🔹 Actualiser la barre d’outils
+        BarreOutils barreOutils = (BarreOutils) leftBar; // leftBar est bien la BarreOutils
+        barreOutils.actualiserComboBoxEntites();
+
+    } else {
+        if (wasUML) {
+            btnUML.setSelected(true);
         } else {
-            if (wasUML) {
-                btnUML.setSelected(true);
-            } else {
-                btnERD.setSelected(true);
-            }
+            btnERD.setSelected(true);
         }
     }
-
+} else {
+    if (wasUML) {
+        btnUML.setSelected(true);
+    } else {
+        btnERD.setSelected(true);
+    }
 }
 
+}
+}
