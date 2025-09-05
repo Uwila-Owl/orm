@@ -303,6 +303,7 @@ updateListeEntites();
             System.out.println("Aucune entité sélectionnée.");
         }
     }
+   
 
     private void ajouterCleEtrangere(String nomCleEtrangere) {
         if (entiteCourante.containsKey("entite")) {
@@ -400,4 +401,25 @@ updateListeEntites();
         alert.setContentText(message);
         alert.showAndWait();
     }
+    
+    public void actualiserComboBoxEntites() {
+    cbEntiteSource.getItems().clear();
+    cbEntiteCible.getItems().clear();
+
+    if (zoneModelisation == null) return;
+
+    for (Map<String, Object> entite : zoneModelisation.getAllEntities()) {
+        // Filtrage par type UML/ERD
+        if ((zoneModelisation.isUML() && "UML".equals(entite.get("type_schema"))) ||
+            (!zoneModelisation.isUML() && "ERD".equals(entite.get("type_schema")))) {
+            String nom = (String) entite.get("nom");
+            cbEntiteSource.getItems().add(nom);
+            cbEntiteCible.getItems().add(nom);
+        }
+    }
+
+    if (!cbEntiteSource.getItems().isEmpty()) cbEntiteSource.getSelectionModel().selectFirst();
+    if (!cbEntiteCible.getItems().isEmpty()) cbEntiteCible.getSelectionModel().selectFirst();
+}
+
 }
