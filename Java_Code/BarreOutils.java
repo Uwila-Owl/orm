@@ -12,6 +12,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javafx.scene.control.Alert.AlertType;
+import javafx.geometry.Pos;
+
 
 public class BarreOutils extends VBox {
 
@@ -37,101 +39,149 @@ public class BarreOutils extends VBox {
         setupVisibilityListeners();
     }
 
-    private void setupUI() {
-        this.setPadding(new Insets(10));
-        this.setSpacing(10);
-        this.setStyle("-fx-background-color: #F4F6F7;");
-        this.setPrefWidth(200);
+private void setupUI() {
+    this.setPadding(new Insets(10));
+    this.setSpacing(10);
+    this.setStyle("-fx-background-color: #F4F6F7;");
+    this.setPrefWidth(200);
+    this.setAlignment(Pos.TOP_CENTER);
 
-        Label title = new Label("Unité");
-        title.setFont(Font.font("Arial", 14));
+    Label title = new Label("Unité");
+    title.setFont(Font.font("Arial", 14));
 
-        unitsList = new VBox(5);
-        String[] unitLabels = {"Entité", "Attribut", "Relation", "Clé primaire", "Clé étrangère", "Héritage"};
-        for (String label : unitLabels) {
-            VBox container = new VBox(3);
-            MenuButton menuButton = new MenuButton(label);
-            menuButton.setPrefWidth(150);
-            VBox addedItems = new VBox(3);
+    unitsList = new VBox(10);
+    unitsList.setAlignment(Pos.TOP_CENTER);
 
-            MenuItem addItem = new MenuItem("+ Ajouter " + label);
-            addItem.setOnAction(e -> {
-                HBox nouvelElement = createUnitItem(label, addedItems, container);
-                addedItems.getChildren().add(nouvelElement);
-            });
+    String[] unitLabels = {"Entité", "Attribut", "Relation", "Clé primaire", "Clé étrangère", "Héritage"};
+    for (String label : unitLabels) {
+        VBox container = new VBox(5);
+        container.setAlignment(Pos.TOP_CENTER);
 
-            menuButton.getItems().add(addItem);
-            container.getChildren().addAll(menuButton, addedItems);
+        Label lblUnit = new Label(label);
+        lblUnit.setFont(Font.font("Arial", 12));
 
-            if (label.equals("Relation")) {
-                relationContainer = container;
-            } else if (label.equals("Héritage")) {
-                heritageContainer = container;
-            }
+        VBox addedItems = new VBox(3);
+        addedItems.setAlignment(Pos.TOP_CENTER);
 
-            unitsList.getChildren().add(container);
-        }
-
-        Button purgerButton = new Button("Purger");
-        purgerButton.setPrefWidth(150);
-        purgerButton.setOnAction(e -> purgerBarreOutils());
-
-        this.getChildren().addAll(title, unitsList, purgerButton);
-
-        // --- AJOUT DE LA SECTION CREATION LIEN ---
-        Label lblLien = new Label("Créer Relation / Héritage");
-        lblLien.setStyle("-fx-font-weight: bold; -fx-padding: 10 0 0 0;");
-
-        cbEntiteSource = new ComboBox<>();
-        cbEntiteSource.setPromptText("Entité source");
-
-        cbEntiteCible = new ComboBox<>();
-        cbEntiteCible.setPromptText("Entité cible");
-
-        btnCreerLien = new Button("Créer Lien");
-        btnCreerLien.setOnAction(e -> {
-            String sourceNom = cbEntiteSource.getValue();
-            String cibleNom = cbEntiteCible.getValue();
-
-            if (sourceNom == null || cibleNom == null) {
-                showAlert("Sélection invalide", "Veuillez sélectionner une entité source et une entité cible.");
-                return;
-            }
-            if (sourceNom.equals(cibleNom)) {
-                showAlert("Sélection invalide", "La source et la cible doivent être différentes.");
-                return;
-            }
-
-            Map<String, Object> source = zoneModelisation.getEntiteParNom(sourceNom);
-            Map<String, Object> cible = zoneModelisation.getEntiteParNom(cibleNom);
-
-            String typeLien = zoneModelisation.isUML() ? "Héritage" : "Relation";
-
-            if (relationExiste(source, cible, typeLien)) {
-                showAlert("Relation existante", "Un " + typeLien + " existe déjà entre ces deux entités.");
-                return;
-            }
-
-            zoneModelisation.creerLienEntreEntites(source, cible, typeLien);
+        Button btnAdd = new Button("+ Add");
+        btnAdd.setPrefWidth(150);
+        btnAdd.setOnAction(e -> {
+            HBox nouvelElement = createUnitItem(label, addedItems, container);
+            addedItems.getChildren().add(nouvelElement);
         });
 
-        HBox hboxSource = new HBox(new Label("Source : "), cbEntiteSource);
-        hboxSource.setSpacing(5);
-        HBox hboxCible = new HBox(new Label("Cible : "), cbEntiteCible);
-        hboxCible.setSpacing(5);
+        container.getChildren().addAll(lblUnit, btnAdd, addedItems);
 
-        VBox vboxLien = new VBox(lblLien, hboxSource, hboxCible, btnCreerLien);
-        vboxLien.setSpacing(10);
-        vboxLien.setPadding(new Insets(10, 0, 0, 0));
+        if (label.equals("Relation")) relationContainer = container;
+        if (label.equals("Héritage")) heritageContainer = container;
 
-        this.getChildren().add(vboxLien);
-        // --- FIN AJOUT ---
-
-        zoneModelisation.setSelectionListener(this::updateToolbarForEntity);
-        updateVisibility();
-        updateListeEntites();
+        unitsList.getChildren().add(container);
     }
 
+   
+
+    // Bouton génération BLOC
+    Button btnGenererBloc = new Button("GÉNÉRER BLOC");
+    btnGenererBloc.setPrefWidth(150);
+    btnGenererBloc.setOnAction(e -> {
+        for (javafx.scene.Node node : unitsList.getChildren()) {
+            if (node instanceof VBox container) {
+                VBox addedItems = (VBox) container.getChildren().get(2);
+                for (javafx.scene.Node itemNode : addedItems.getChildren()) {
+                    if (itemNode instanceof HBox hbox) {
+                        TextField tf = (TextField) hbox.getChildren().get(1);
+                        String valeur = tf.getText().trim();
+                        if (!valeur.isEmpty()) {
+                            switch (((Label) container.getChildren().get(0)).getText()) {
+                                case "Entité" -> creerEntite(valeur);
+                                case "Attribut" -> ajouterAttribut(valeur);
+                                case "Clé primaire" -> ajouterClePrimaire(valeur);
+                                case "Clé étrangère" -> ajouterCleEtrangere(valeur);
+                                case "Relation" -> creerRelation(valeur);
+                                case "Héritage" -> creerHeritage(valeur);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        showAlert("Bloc généré", "Tous les éléments ont été ajoutés à la zone de modélisation.");
+        purgerBarreOutils();
+    });
+
+    this.getChildren().addAll(title, unitsList, btnGenererBloc);
+
+    
+   
+ // --- Section création de lien ---
+Label lblLien = new Label("Créer Relation / Héritage");
+lblLien.setStyle("-fx-font-weight: bold; -fx-padding: 10 0 0 0;");
+
+cbEntiteSource = new ComboBox<>();
+cbEntiteSource.setPromptText("Source");
+
+cbEntiteCible = new ComboBox<>();
+cbEntiteCible.setPromptText("Cible");
+
+// --- Cardinalités ---
+ComboBox<String> cbCardinaliteSource = new ComboBox<>();
+cbCardinaliteSource.getItems().addAll("1,1", "0,1", "0,N", "1,N");
+cbCardinaliteSource.setPromptText("Cardinalité");
+
+ComboBox<String> cbCardinaliteCible = new ComboBox<>();
+cbCardinaliteCible.getItems().addAll("1,1", "0,1", "0,N", "1,N");
+cbCardinaliteCible.setPromptText("Cardinalité");
+
+btnCreerLien = new Button("Créer Lien");
+btnCreerLien.setOnAction(e -> {
+    String sourceNom = cbEntiteSource.getValue();
+    String cibleNom = cbEntiteCible.getValue();
+    String cardSource = cbCardinaliteSource.getValue();
+    String cardCible = cbCardinaliteCible.getValue();
+
+    if (sourceNom == null || cibleNom == null || cardSource == null || cardCible == null) {
+        showAlert("Sélection invalide", "Veuillez sélectionner une entité source, une entité cible et les cardinalités.");
+        return;
+    }
+    if (sourceNom.equals(cibleNom)) {
+        showAlert("Sélection invalide", "La source et la cible doivent être différentes.");
+        return;
+    }
+
+    Map<String, Object> source = zoneModelisation.getEntiteParNom(sourceNom);
+    Map<String, Object> cible = zoneModelisation.getEntiteParNom(cibleNom);
+    String typeLien = zoneModelisation.isUML() ? "Héritage" : "Relation";
+
+    if (relationExiste(source, cible, typeLien)) {
+        showAlert("Relation existante", "Un " + typeLien + " existe déjà entre ces deux entités.");
+        return;
+    }
+
+    // Passer les cardinalités à la zone
+    zoneModelisation.creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, cardSource, cardCible);
+});
+
+// HBox pour source + cardinalité
+HBox hboxSource = new HBox(5, cbEntiteSource, cbCardinaliteSource);
+hboxSource.setAlignment(Pos.CENTER_LEFT);
+
+// HBox pour cible + cardinalité
+HBox hboxCible = new HBox(5, cbEntiteCible, cbCardinaliteCible);
+hboxCible.setAlignment(Pos.CENTER_LEFT);
+
+// VBox lien
+VBox vboxLien = new VBox(10, lblLien, hboxSource, hboxCible, btnCreerLien);
+vboxLien.setPadding(new Insets(10, 0, 0, 0));
+vboxLien.setAlignment(Pos.TOP_CENTER);
+
+this.getChildren().add(vboxLien);
+
+zoneModelisation.setSelectionListener(this::updateToolbarForEntity);
+updateVisibility();
+updateListeEntites();
+}
+
+    
     private HBox createUnitItem(String type, VBox parentContainer, VBox parentMenuContainer) {
         Label icon = new Label("\u2022");
         icon.setStyle("-fx-text-fill: #0078D7; -fx-font-weight: bold;");
