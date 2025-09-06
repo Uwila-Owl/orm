@@ -42,7 +42,6 @@ public class ZoneModelisation extends Pane {
     private EntiteDAO entiteDAO;
     private AttributDAO attributDAO;
     private Visuel visuel;
-    private List<RelationERD> relationsERD = new ArrayList<>();
 
     public interface SelectionListener {
 
@@ -129,27 +128,27 @@ public class ZoneModelisation extends Pane {
     }
 
     public void setTypeSchema(boolean isUML) {
-    this.isUML = isUML;
+        this.isUML = isUML;
 
-    // Supprimer uniquement les entités et lignes, pas le quadrillage ni le curseur
-    List<Node> nodesToRemove = new ArrayList<>();
-    for (Node node : this.getChildren()) {
-        if (node != gridCanvas && node != positionCurseurGroup) {
-            nodesToRemove.add(node);
+        // Supprimer uniquement les entités et lignes, pas le quadrillage ni le curseur
+        // On peut faire une copie des enfants à supprimer
+        List<Node> nodesToRemove = new ArrayList<>();
+        for (Node node : this.getChildren()) {
+            if (node != gridCanvas && node != positionCurseurGroup) {
+                nodesToRemove.add(node);
+            }
         }
-    }
-    this.getChildren().removeAll(nodesToRemove);
+        this.getChildren().removeAll(nodesToRemove);
 
-    entiteToGroup.clear();
-    entiteById.clear();
-    lignesAssociees.clear();
-    relationsERD.clear(); // Nettoyer les relations ERD
+        entiteToGroup.clear();
+        entiteById.clear();
+        lignesAssociees.clear();
 
-    if (isUML) {
-        ChargerEntites("UML");
-    } else {
-        ChargerEntites("ERD");
-    }
+        if (isUML) {
+            ChargerEntites("UML");
+        } else {
+            ChargerEntites("ERD");
+        }
     }
 
     public void ajouterEntite(Map<String, Object> entite) {
@@ -272,56 +271,82 @@ public class ZoneModelisation extends Pane {
     }
 
     public void creerLienEntreEntitesAvecCardinalites(Map<String, Object> source, Map<String, Object> cible, String typeLien,
-        String cardSource, String cardCible) {
-    if (source == null || cible == null || source.equals(cible)) {
-        return;
+            String cardSource, String cardCible) {
+        if (source == null || cible == null || source.equals(cible)) {
+            return;
+        }
+
+        Group g1 = entiteToGroup.get((Integer) source.get("id"));
+        Group g2 = entiteToGroup.get((Integer) cible.get("id"));
+        if (g1 == null || g2 == null) {
+            return;
+        }
+
+        // ====== Cas UML ======
+        if (isUML()) {
+            Line ligne = new Line();
+            ligne.setStroke(typeLien.equals("Héritage") ? Color.GREEN : Color.BLACK);
+            ligne.setStrokeWidth(typeLien.equals("Héritage") ? 3 : 1);
+
+            LigneAssociee la = new LigneAssociee(ligne, source, cible, null, null); // pas de cardinalités
+            lignesAssociees.add(la);
+
+            la.MajPosition();
+            this.getChildren().add(0, ligne);
+
+            // ====== Cas ERD ======
+        } else {
+            // Lignes reliant entités <-> ellipse
+            Line ligne1 = new Line();
+            ligne1.setStroke(Color.BLACK);
+
+            Line ligne2 = new Line();
+            ligne2.setStroke(Color.BLACK);
+
+            double x1 = g1.getLayoutX();
+            double y1 = g1.getLayoutY();
+            double x2 = g2.getLayoutX();
+            double y2 = g2.getLayoutY();
+
+            double centerX = 0;
+            double centerY = 0;
+
+            // Ellipse au centre
+            Ellipse ellipse = new Ellipse(centerX, centerY, 50, 25);
+            ellipse.setFill(Color.LIGHTGRAY);
+            ellipse.setStroke(Color.BLACK);
+
+            // Nom de relation
+            String relationNom = (String) source.getOrDefault("nom_relation", "Relation");
+            Text relationText = new Text(-20, 5, relationNom);
+
+            // Cardinalités
+            Text cardTextSource = new Text(cardSource);
+            Text cardTextCible = new Text(cardCible);
+
+            // Position initiale (mise à jour par LigneAssociee)
+            cardTextSource.setX(x1 + 30);
+            cardTextSource.setY(y1);
+            cardTextCible.setX(x2 + 30);
+            cardTextCible.setY(y2);
+
+            // Associer les lignes
+            Group relationGroup = new Group(ellipse, relationText);
+            LigneAssociee la1 = new LigneAssociee(ligne1, source, cible, cardSource, cardCible, cardTextSource, cardTextCible, relationGroup);
+            LigneAssociee la2 = new LigneAssociee(ligne2, source, cible, cardSource, cardCible, cardTextSource, cardTextCible, relationGroup);
+            lignesAssociees.add(la1);
+            lignesAssociees.add(la2);
+
+            la1.MajPosition();
+            la2.MajPosition();
+
+            // Ajout visuel
+            this.getChildren().addAll(ligne1, ligne2, relationGroup, cardTextSource, cardTextCible);
+
+            // Stocker le texte relation pour mise à jour depuis panneau
+            source.put("relation_text", relationText);
+        }
     }
-
-    Group g1 = entiteToGroup.get((Integer) source.get("id"));
-    Group g2 = entiteToGroup.get((Integer) cible.get("id"));
-    if (g1 == null || g2 == null) {
-        return;
-    }
-
-    // ====== Cas UML ======
-    if (isUML()) {
-        Line ligne = new Line();
-        ligne.setStroke(typeLien.equals("Héritage") ? Color.GREEN : Color.BLACK);
-        ligne.setStrokeWidth(typeLien.equals("Héritage") ? 3 : 1);
-
-        LigneAssociee la = new LigneAssociee(ligne, source, cible, null, null);
-        lignesAssociees.add(la);
-
-        la.MajPosition();
-        this.getChildren().add(0, ligne);
-
-    // ====== Cas ERD ======
-    } else {
-        String relationNom = (String) source.getOrDefault("nom_relation", "Relation");
-        
-        // Créer la nouvelle relation ERD
-        RelationERD relationERD = new RelationERD(
-            source, cible, entiteToGroup, 
-            relationNom, cardSource, cardCible
-        );
-        
-        // Ajouter à la liste des relations ERD
-        relationsERD.add(relationERD);
-        
-        // Ajouter tous les éléments visuels à la scène
-        this.getChildren().addAll(
-            relationERD.getLigne1(),
-            relationERD.getLigne2(),
-            relationERD.getRelationGroup(),
-            relationERD.getCardinaliteSourceText(),
-            relationERD.getCardinaliteCibleText()
-        );
-        
-        // Stocker le texte relation pour mise à jour depuis panneau
-        source.put("relation_text", relationERD.getRelationGroup().getChildren().get(1)); // Le Text est le 2ème enfant
-    }
-}
-
 
     /**
      * Crée un lien entre deux entités avec des cardinalités par défaut [ ].
@@ -397,30 +422,22 @@ public class ZoneModelisation extends Pane {
     }
 
     private void MajLien(Node node) {
-    Map<String, Object> entite = null;
-    for (Map.Entry<Integer, Group> entry : entiteToGroup.entrySet()) {
-        if (entry.getValue() == node) {
-            entite = entiteById.get(entry.getKey());
-            break;
+        Map<String, Object> entite = null;
+        for (Map.Entry<Integer, Group> entry : entiteToGroup.entrySet()) {
+            if (entry.getValue() == node) {
+                entite = entiteById.get(entry.getKey());
+                break;
+            }
         }
-    }
-    if (entite == null) {
-        return;
-    }
+        if (entite == null) {
+            return;
+        }
 
-    // Mise à jour des lignes UML
-    for (LigneAssociee la : lignesAssociees) {
-        if (la.e1.equals(entite) || la.e2.equals(entite)) {
-            la.MajPosition();
+        for (LigneAssociee la : lignesAssociees) {
+            if (la.e1.equals(entite) || la.e2.equals(entite)) {
+                la.MajPosition();
+            }
         }
-    }
-    
-    // Mise à jour des relations ERD
-    for (RelationERD relationERD : relationsERD) {
-        if (relationERD.concerneEntite(entite)) {
-            relationERD.mettreAJourPositions();
-        }
-    }
     }
 
     private static class Delta {
@@ -481,27 +498,16 @@ public class ZoneModelisation extends Pane {
     }
 
     public boolean relationExiste(Map<String, Object> source, Map<String, Object> cible, String typeLien) {
-    // Vérifier dans les lignes UML
-    for (LigneAssociee ligne : lignesAssociees) {
-        boolean memeType = (typeLien.equals("Héritage") && ligne.ligne.getStroke().equals(Color.GREEN))
-                || (typeLien.equals("Relation") && ligne.ligne.getStroke().equals(Color.BLACK));
-        boolean memeCouple = (ligne.e1.equals(source) && ligne.e2.equals(cible))
-                || (ligne.e1.equals(cible) && ligne.e2.equals(source));
-        if (memeType && memeCouple) {
-            return true;
+        for (LigneAssociee ligne : lignesAssociees) {
+            boolean memeType = (typeLien.equals("Héritage") && ligne.ligne.getStroke().equals(Color.GREEN))
+                    || (typeLien.equals("Relation") && ligne.ligne.getStroke().equals(Color.BLACK));
+            boolean memeCouple = (ligne.e1.equals(source) && ligne.e2.equals(cible))
+                    || (ligne.e1.equals(cible) && ligne.e2.equals(source));
+            if (memeType && memeCouple) {
+                return true;
+            }
         }
-    }
-    
-    // Vérifier dans les relations ERD
-    for (RelationERD relationERD : relationsERD) {
-        boolean memeCouple = (relationERD.getEntiteSource().equals(source) && relationERD.getEntiteCible().equals(cible))
-                || (relationERD.getEntiteSource().equals(cible) && relationERD.getEntiteCible().equals(source));
-        if (memeCouple) {
-            return true;
-        }
-    }
-    
-    return false;
+        return false;
     }
 
     private void MajPositionLigne(Line ligne, Group g1, Group g2) {
@@ -573,7 +579,6 @@ public class ZoneModelisation extends Pane {
 
         // Dans la classe LigneAssociee de ZoneModelisation.java
         // Remplacer la méthode MajPosition() par celle-ci :
-       
         public void MajPosition() {
             Group g1 = entiteToGroup.get((Integer) e1.get("id"));
             Group g2 = entiteToGroup.get((Integer) e2.get("id"));
@@ -606,14 +611,13 @@ public class ZoneModelisation extends Pane {
                     relationGroup.setLayoutY(midY - groupHeight / 2);
                 }
 
-                /*
                 // Positionner les cardinalités près des bords des entités
                 // Cardinalité source (près de l'entité e1)
                 double offsetX1 = (point2[0] - point1[0]) * 0.1; // 10% de la ligne depuis e1
                 double offsetY1 = (point2[1] - point1[1]) * 0.1;
 
                 // Cardinalité cible (près de l'entité e2)
-                double offsetX2 = (point1[0] - point2[0]) * 0.1; // 10% de la ligne depuis e2
+                double offsetX2 = (point1[0] - point2[0]) * 0.2; // 10% de la ligne depuis e2
                 double offsetY2 = (point1[1] - point2[1]) * 0.1;
 
                 // Détermination de l'orientation de la ligne
@@ -624,11 +628,11 @@ public class ZoneModelisation extends Pane {
 
                 if (adx > ady * 2) {
                     // Cas ligne principalement horizontale
-                    cardinaliteSourceText.setX(point1[0] + offsetX1);
+                    cardinaliteSourceText.setX(point1[0] + offsetX1 - 10);
                     cardinaliteSourceText.setY(point1[1] + 15);  // au-dessus
 
                     cardinaliteCibleText.setX(point2[0] + offsetX2);
-                    cardinaliteCibleText.setY(point2[1] + 55);  // en-dessous
+                    cardinaliteCibleText.setY(point2[1] - 15);  // en-dessous
 
                 } else if (ady > adx * 2) {
                     // Cas ligne principalement verticale
@@ -656,7 +660,6 @@ public class ZoneModelisation extends Pane {
                     cardinaliteCibleText.setX(point2[0] + offsetX2 + px * 15 - cardinaliteCibleText.getLayoutBounds().getWidth() / 2);
                     cardinaliteCibleText.setY(point2[1] + offsetY2 + py * 15);
                 }
-                    */
 
             }
         }
