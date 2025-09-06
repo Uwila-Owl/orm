@@ -255,17 +255,11 @@ public class FenetreLogin extends JFrame {
         setVisible(true);
     }
 
-    /**
-     * Authentifie l'utilisateur et retourne si il est superviseur (supvis =
-     * true).
-     *
-     * @param id ID utilisateur
-     * @param password mot de passe
-     * @return Boolean true si superviseur, false sinon, null si échec auth
-     */
     private Boolean authentifierEtVerifierSupvis(String id, String password) {
         try (Connection connection = connexionBdd.getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(
-                "SELECT supvis FROM utilisateurs WHERE ID = ? AND Password = ? AND active = TRUE")) {
+                "SELECT supvis FROM utilisateurs "
+                + "WHERE ID = ? AND Password = crypt(?, Password) AND active = TRUE")) {
+
             preparedStatement.setString(1, id);
             preparedStatement.setString(2, password);
             ResultSet resultSet = preparedStatement.executeQuery();
@@ -413,15 +407,18 @@ public class FenetreLogin extends JFrame {
 
     private boolean creerUtilisateur(String id, String nom, String prenom, String email, String idDiscord, String password) {
         try (Connection connection = connexionBdd.getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(
-                "INSERT INTO utilisateurs (ID, Password, active, supvis, date, nom, prenom, email, id_discord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                "INSERT INTO utilisateurs (ID, Password, active, supvis, date, nom, prenom, email, id_discord) "
+                + "VALUES (?, crypt(?, gen_salt('bf')), ?, ?, ?, ?, ?, ?, ?)")) {
+
             preparedStatement.setString(1, id);
-            preparedStatement.setString(2, password);
+            preparedStatement.setString(2, password); // Postgres le hache
             preparedStatement.setBoolean(3, true);
             preparedStatement.setBoolean(4, false);
             preparedStatement.setTimestamp(5, Timestamp.valueOf(LocalDateTime.now()));
             preparedStatement.setString(6, nom);
             preparedStatement.setString(7, prenom);
             preparedStatement.setString(8, email);
+
             if (idDiscord.isEmpty()) {
                 preparedStatement.setNull(9, java.sql.Types.VARCHAR);
             } else {
