@@ -13,6 +13,7 @@ import javafx.application.Platform;
 public class Supervision extends JFrame {
 
     private ConnexionBdd connexionBdd = new ConnexionBdd();
+    private String idSuperviseur;
 
     // Couleurs et polices (harmonisés avec MdpOublie)
     private final Color bgColor = Color.decode("#D6E3F3");
@@ -24,8 +25,24 @@ public class Supervision extends JFrame {
     private CardLayout cardLayout = new CardLayout();
     private JPanel mainPanel = new JPanel(cardLayout);
 
-    public Supervision() {
+    private String getSuperviseurSiValide(String idUtilisateur) {
+        String sql = "SELECT ID FROM utilisateurs WHERE ID = ? AND supvis = true";
+        try (Connection conn = connexionBdd.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, idUtilisateur);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return rs.getString("ID");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public Supervision(ConnexionBdd connexionBdd, String idSuperviseur) {
         super("Supervision");
+        this.connexionBdd = connexionBdd;
+        this.idSuperviseur = idSuperviseur;
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(700, 500);
@@ -81,20 +98,68 @@ public class Supervision extends JFrame {
         });
 
         umlButton.addActionListener(e -> {
-            dispose();
-            Platform.runLater(() -> {
-                try {
-                    InterfaceGenerateurUML app = new InterfaceGenerateurUML();
-                    javafx.stage.Stage stage = new javafx.stage.Stage();
-                    app.start(stage);
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                    JOptionPane.showMessageDialog(null, "Erreur lors du lancement de InterfaceGenerateurUML : " + ex.getMessage());
-                }
-            });
+            if (idSuperviseur != null) {
+                dispose();
+                SwingUtilities.invokeLater(() -> {
+                    new Ventilation(this, connexionBdd, this.idSuperviseur);
+                });
+            } else {
+                JOptionPane.showMessageDialog(this, "Vous n'avez pas les droits superviseur pour accéder à cette fonctionnalité.");
+            }
         });
 
         setVisible(true);
+    }
+
+    // Méthode pour récupérer la liste des schémas depuis la base
+    private List<Schema> recupererSchemas() {
+        List<Schema> schemas = new ArrayList<>();
+        String sql = "SELECT schema_id, nom_schema FROM ventilation ORDER BY nom_schema";
+        try (Connection conn = connexionBdd.getConnection(); PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                int id = rs.getInt("schema_id");
+                String nom = rs.getString("nom_schema");
+                schemas.add(new Schema(id, nom));
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Erreur récupération schémas : " + e.getMessage());
+        }
+        return schemas;
+    }
+
+    // Affiche un dialogue pour choisir un schéma
+    private Schema choisirSchema() {
+        List<Schema> schemas = recupererSchemas();
+        if (schemas.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Aucun schéma disponible.");
+            return null;
+        }
+        Schema selection = (Schema) JOptionPane.showInputDialog(
+                this,
+                "Choisissez un schéma :",
+                "Sélection Schéma",
+                JOptionPane.PLAIN_MESSAGE,
+                null,
+                schemas.toArray(),
+                schemas.get(0));
+        return selection;
+    }
+
+    // Classe interne simple pour stocker schemaId et nomSchema
+    private static class Schema {
+
+        int id;
+        String nom;
+
+        Schema(int id, String nom) {
+            this.id = id;
+            this.nom = nom;
+        }
+
+        @Override
+        public String toString() {
+            return nom + " (ID: " + id + ")";
+        }
     }
 
     // Composants du tableau

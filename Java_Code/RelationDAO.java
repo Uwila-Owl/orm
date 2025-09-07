@@ -116,6 +116,24 @@ public class RelationDAO {
     }
 
     /**
+     * Supprime toutes les relations associées à un schéma donné.
+     *
+     * @param schemaId L'ID du schéma dont les relations doivent être
+     * supprimées.
+     */
+    public void supprimerRelationsParSchema(int schemaId) {
+        String SQL = "DELETE FROM relations WHERE entite_source_id IN (SELECT id FROM entites WHERE schema_id = ?) OR entite_cible_id IN (SELECT id FROM entites WHERE schema_id = ?)";
+        try (Connection conn = ConnexionBdd.getConnection(); PreparedStatement pstmt = conn.prepareStatement(SQL)) {
+            pstmt.setInt(1, schemaId);
+            pstmt.setInt(2, schemaId);
+            int affectedRows = pstmt.executeUpdate();
+            LOGGER.info("Suppression de " + affectedRows + " relations pour le schéma ID : " + schemaId);
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Erreur lors de la suppression des relations par schéma : " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Récupère une relation à partir de l'ID de l'entité source.
      */
     public Map<String, Object> getRelationBySourceId(int entiteSourceId) {

@@ -218,24 +218,24 @@ public class FenetreLogin extends JFrame {
                     return;
                 }
 
-                messageLabel.setText("Authentification réussie! Fermeture automatique dans 5 secondes.");
+                messageLabel.setText("Authentification réussie! Fermeture automatique dans 3 secondes.");
                 idField.setEnabled(false);
                 passwordField.setEnabled(false);
                 okButton.setEnabled(false);
                 createButton.setEnabled(false);
                 cancelButton.setEnabled(false);
 
-                Timer timer = new Timer(5000, evt -> {
+                Timer timer = new Timer(3000, evt -> {
                     FenetreLogin.this.dispose();
                     SwingUtilities.invokeLater(() -> {
-                        Platform.runLater(() -> {
-                            if (isSuperviseur) {
-                                SwingUtilities.invokeLater(() -> new Supervision());
-                            } else {
-                                // Lancer l'application JavaFX correctement
-                                new Thread(() -> Application.launch(InterfaceGenerateurUML.class)).start();
-                            }
-                        });
+                        if (isSuperviseur) {
+                            // Pour les superviseurs, lancez la fenêtre de Supervision en passant l'ID
+                            new Supervision(connexionBdd, id);
+                        } else {
+                            // Pour les utilisateurs normaux, lancez la fenêtre Ventilation en passant l'ID
+                            new Ventilation(FenetreLogin.this, connexionBdd, id);
+                        }
+
                     });
                 });
                 timer.setRepeats(false);
