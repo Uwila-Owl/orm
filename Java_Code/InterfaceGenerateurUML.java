@@ -1,4 +1,3 @@
-
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -7,6 +6,9 @@ import javafx.scene.control.*;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.util.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -22,13 +24,11 @@ public class InterfaceGenerateurUML extends Application {
     private ToggleButton btnERD;
     private Stage primaryStage;
     private BarreOutils leftBar;
-    
-      // 🆕 AJOUT De constructeur (sans paramètres) (Eric)
-    public InterfaceGenerateurUML() {
-        // Ce constructeur peut être complètement vide
-        // Les valeurs par défaut sont déjà définies ci-dessus (-1 et "Nouveau Schéma")
-    }
 
+    // Constructeur par défaut requis par JavaFX
+    public InterfaceGenerateurUML() {
+        // Constructeur vide requis par JavaFX
+    }
 
     public InterfaceGenerateurUML(int schemaId, String schemaName) {
         this.currentSchemaId = schemaId;
@@ -39,9 +39,25 @@ public class InterfaceGenerateurUML extends Application {
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
 
+        // Créer la barre de menu avec la nouvelle couleur
         MenuBar menuBar = NavigationMenu.createMenuBar(primaryStage);
-        menuBar.setStyle("-fx-background-color: #048B9A;");
+        menuBar.setStyle("-fx-background-color: #149FB6;");
 
+        // Créer la zone utilisateur avec les vraies informations
+        Label userLabel = createUserLabel();
+        
+        // Créer un HBox pour la barre de menu avec l'utilisateur
+        HBox menuContainer = new HBox();
+        menuContainer.setAlignment(Pos.CENTER_LEFT);
+        
+        // Espacer pour pousser l'utilisateur à droite
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        menuContainer.getChildren().addAll(menuBar, spacer, userLabel);
+        menuContainer.setStyle("-fx-background-color: #149FB6;");
+
+        // Créer les onglets UML/ERD
         ToggleGroup group = new ToggleGroup();
         btnUML = new ToggleButton("UML");
         btnERD = new ToggleButton("ERD");
@@ -54,14 +70,14 @@ public class InterfaceGenerateurUML extends Application {
         onglets.setAlignment(Pos.CENTER);
         onglets.setStyle("-fx-background-color: #D6E3F3;");
 
-        VBox top = new VBox(menuBar, onglets);
+        VBox top = new VBox(menuContainer, onglets);
 
         ZoneModelisation zoneModelisation = new ZoneModelisation(currentSchemaId);
         this.ZoneModelisation = zoneModelisation;
         zoneModelisation.setStyle("-fx-padding: 50; -fx-border-color: gray;");
         StackPane centerPane = new StackPane(zoneModelisation);
         centerPane.setStyle("-fx-background-color: white;");
-        centerPane.setPrefSize(Double.MAX_VALUE, Double.MAX_VALUE); // occuper toute la place
+        centerPane.setPrefSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
         leftBar = (BarreOutils) createBarreOutils();
         leftBar.setMinWidth(250);
@@ -103,9 +119,11 @@ public class InterfaceGenerateurUML extends Application {
         primaryStage.setTitle("Générateur UML/ERD/Code");
         primaryStage.setScene(scene);
 
-        // 🔹 ouverture en plein écran
         primaryStage.setMaximized(true);
         primaryStage.setFullScreenExitHint("");
+
+        // Configuration de la vérification de session
+        setupSessionCheck();
 
         primaryStage.show();
     }
@@ -120,6 +138,147 @@ public class InterfaceGenerateurUML extends Application {
 
     public ToggleButton getBtnERD() {
         return btnERD;
+    }
+
+    // Méthode pour créer le label utilisateur avec les vraies données
+    private Label createUserLabel() {
+        UserSession session = UserSession.getInstance();
+        String displayName = session.getFullName();
+        String role = session.isSuperviseur() ? " (Admin)" : "";
+        
+        Label userLabel = new Label("👤 " + displayName + role);
+        userLabel.setStyle(
+            "-fx-text-fill: white; " +
+            "-fx-font-size: 14px; " +
+            "-fx-font-weight: bold; " +
+            "-fx-padding: 8 15 8 15; " +
+            "-fx-background-color: rgba(255,255,255,0.15); " +
+            "-fx-background-radius: 15; " +
+            "-fx-cursor: hand;"
+        );
+        
+        // Effet de survol
+        userLabel.setOnMouseEntered(e -> {
+            userLabel.setStyle(
+                "-fx-text-fill: white; " +
+                "-fx-font-size: 14px; " +
+                "-fx-font-weight: bold; " +
+                "-fx-padding: 8 15 8 15; " +
+                "-fx-background-color: rgba(255,255,255,0.25); " +
+                "-fx-background-radius: 15; " +
+                "-fx-cursor: hand;"
+            );
+        });
+        
+        userLabel.setOnMouseExited(e -> {
+            userLabel.setStyle(
+                "-fx-text-fill: white; " +
+                "-fx-font-size: 14px; " +
+                "-fx-font-weight: bold; " +
+                "-fx-padding: 8 15 8 15; " +
+                "-fx-background-color: rgba(255,255,255,0.15); " +
+                "-fx-background-radius: 15; " +
+                "-fx-cursor: hand;"
+            );
+        });
+        
+        // Menu contextuel au clic
+        userLabel.setOnMouseClicked(e -> {
+            if (e.getButton() == MouseButton.PRIMARY) {
+                showUserMenu(userLabel);
+            }
+        });
+        
+        return userLabel;
+    }
+
+    // Configuration de la vérification de session
+    private void setupSessionCheck() {
+        Timeline sessionChecker = new Timeline(
+            new KeyFrame(Duration.minutes(5), e -> checkSession())
+        );
+        sessionChecker.setCycleCount(Timeline.INDEFINITE);
+        sessionChecker.play();
+    }
+
+    private void checkSession() {
+        UserSession session = UserSession.getInstance();
+        if (session.getUserId() == null || session.isSessionExpired()) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Session expirée");
+            alert.setHeaderText("Votre session a expiré");
+            alert.setContentText("Pour des raisons de sécurité, vous devez vous reconnecter.");
+            alert.showAndWait();
+            
+            session.clear();
+            primaryStage.close();
+        }
+    }
+
+    // Menu contextuel utilisateur avec vraies informations
+    private void showUserMenu(Label userLabel) {
+        ContextMenu userMenu = new ContextMenu();
+        UserSession session = UserSession.getInstance();
+        
+        MenuItem profileItem = new MenuItem("👤 Profil");
+        MenuItem sessionInfoItem = new MenuItem("⏰ Info Session");
+        MenuItem settingsItem = new MenuItem("⚙️ Paramètres");
+        MenuItem logoutItem = new MenuItem("🚪 Déconnexion");
+        
+        // Action profil avec vraies informations
+        profileItem.setOnAction(e -> {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Profil utilisateur");
+            alert.setHeaderText("Informations utilisateur");
+            
+            StringBuilder info = new StringBuilder();
+            info.append("ID: ").append(session.getUserId()).append("\n");
+            info.append("Nom: ").append(session.getNom() != null ? session.getNom() : "N/A").append("\n");
+            info.append("Prénom: ").append(session.getPrenom() != null ? session.getPrenom() : "N/A").append("\n");
+            info.append("Email: ").append(session.getEmail() != null ? session.getEmail() : "N/A").append("\n");
+            info.append("Statut: ").append(session.isSuperviseur() ? "Superviseur" : "Utilisateur");
+            
+            alert.setContentText(info.toString());
+            alert.showAndWait();
+        });
+        
+        // Informations de session
+        sessionInfoItem.setOnAction(e -> {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Informations de session");
+            alert.setHeaderText("Détails de votre session");
+            
+            long remainingMinutes = session.getRemainingSessionMinutes();
+            String timeLeft = String.format("%d heures %d minutes", 
+                remainingMinutes / 60, remainingMinutes % 60);
+                
+            alert.setContentText("Temps de session restant: " + timeLeft);
+            alert.showAndWait();
+        });
+        
+        settingsItem.setOnAction(e -> {
+            System.out.println("Ouvrir paramètres pour: " + session.getUserId());
+        });
+        
+        logoutItem.setOnAction(e -> {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setTitle("Déconnexion");
+            confirm.setHeaderText("Confirmer la déconnexion");
+            confirm.setContentText("Voulez-vous vraiment vous déconnecter, " + session.getPrenom() + " ?");
+            
+            Optional<ButtonType> result = confirm.showAndWait();
+            if (result.isPresent() && result.get() == ButtonType.OK) {
+                session.clear();
+                primaryStage.close();
+            }
+        });
+        
+        userMenu.getItems().addAll(profileItem, sessionInfoItem, settingsItem, 
+                                  new SeparatorMenuItem(), logoutItem);
+        
+        userMenu.show(userLabel, 
+                      userLabel.localToScreen(userLabel.getBoundsInLocal()).getMinX(),
+                      userLabel.localToScreen(userLabel.getBoundsInLocal()).getMaxY());
     }
 
     private void promptWarnAndSwitch(boolean wasUML, boolean willBeUML) {
@@ -139,11 +298,8 @@ public class InterfaceGenerateurUML extends Application {
 
         if (result.isPresent()) {
             if (result.get() == buttonTypeContinue) {
-                // 🔹 Changement du type de schéma
                 ZoneModelisation.setTypeSchema(willBeUML);
-
-                // 🔹 Actualiser la barre d’outils
-                BarreOutils barreOutils = (BarreOutils) leftBar; // leftBar est bien la BarreOutils
+                BarreOutils barreOutils = (BarreOutils) leftBar;
                 barreOutils.actualiserComboBoxEntites();
 
             } else {
@@ -160,6 +316,5 @@ public class InterfaceGenerateurUML extends Application {
                 btnERD.setSelected(true);
             }
         }
-
     }
 }

@@ -1,4 +1,3 @@
-
 import javafx.embed.swing.JFXPanel;
 import javax.swing.*;
 import java.awt.*;
@@ -22,7 +21,7 @@ public class FenetreLogin extends JFrame {
         super("Authentification");
         connexionBdd = new ConnexionBdd();
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(520, 380);
+        setSize(520, 420); // Augmenté pour le nouveau bouton
         setLocationRelativeTo(null);
 
         // Couleurs
@@ -65,8 +64,9 @@ public class FenetreLogin extends JFrame {
         JButton okButton = new JButton("OK");
         JButton createButton = new JButton("Créer");
         JButton cancelButton = new JButton("Annuler");
+        JButton forgotPasswordButton = new JButton("Mot de passe oublié");
 
-        JButton[] buttons = {okButton, createButton, cancelButton};
+        JButton[] buttons = {okButton, createButton, cancelButton, forgotPasswordButton};
         for (JButton b : buttons) {
             b.setBackground(btnColor);
             b.setForeground(textColor);
@@ -87,13 +87,17 @@ public class FenetreLogin extends JFrame {
         gbc.gridwidth = 2;
         panel.add(cancelButton, gbc);
 
+        // Nouveau bouton mot de passe oublié
+        gbc.gridy = 6;
+        panel.add(forgotPasswordButton, gbc);
+
         // Label message
         messageLabel = new JLabel(" ");
         messageLabel.setHorizontalAlignment(SwingConstants.CENTER);
         messageLabel.setForeground(Color.BLUE);
         GridBagConstraints gbcMessage = new GridBagConstraints();
         gbcMessage.gridx = 0;
-        gbcMessage.gridy = 6;
+        gbcMessage.gridy = 7;
         gbcMessage.gridwidth = 2;
         gbcMessage.insets = new Insets(5, 10, 10, 10);
         gbcMessage.fill = GridBagConstraints.HORIZONTAL;
@@ -160,6 +164,7 @@ public class FenetreLogin extends JFrame {
                 okButton.setEnabled(false);
                 createButton.setEnabled(false);
                 cancelButton.setEnabled(false);
+                forgotPasswordButton.setEnabled(false);
 
                 Timer timer = new Timer(3000, evt -> {
                     FenetreLogin.this.dispose();
@@ -182,6 +187,12 @@ public class FenetreLogin extends JFrame {
 
         createButton.addActionListener(e -> ouvrirFenetreCreation());
         cancelButton.addActionListener(e -> System.exit(0));
+        
+        // Action pour le bouton mot de passe oublié
+        forgotPasswordButton.addActionListener(e -> {
+            this.setVisible(false);
+            SwingUtilities.invokeLater(() -> new MdpOublie(this, connexionBdd));
+        });
 
         setVisible(true);
     }
@@ -199,17 +210,29 @@ public class FenetreLogin extends JFrame {
     }
 
     private AuthResult authentifierEtVerifierSupvis(String id, String password) {
-        try (Connection connection = connexionBdd.getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(
-                "SELECT supvis, password_reset_required FROM utilisateurs "
-                + "WHERE ID = ? AND Password = crypt(?, Password) AND active = TRUE")) {
+        try (Connection connection = connexionBdd.getConnection(); 
+             PreparedStatement preparedStatement = connection.prepareStatement(
+                "SELECT supvis, password_reset_required, nom, prenom, email " +
+                "FROM utilisateurs " +
+                "WHERE ID = ? AND Password = crypt(?, Password) AND active = TRUE")) {
 
             preparedStatement.setString(1, id);
             preparedStatement.setString(2, password);
             ResultSet resultSet = preparedStatement.executeQuery();
+            
             if (resultSet.next()) {
+                // Stocker les informations utilisateur dans la session
+                UserSession.getInstance().setUserInfo(
+                    id,
+                    resultSet.getString("nom"),
+                    resultSet.getString("prenom"),
+                    resultSet.getString("email"),
+                    resultSet.getBoolean("supvis")
+                );
+                
                 return new AuthResult(
-                        resultSet.getBoolean("supvis"),
-                        resultSet.getBoolean("password_reset_required")
+                    resultSet.getBoolean("supvis"),
+                    resultSet.getBoolean("password_reset_required")
                 );
             } else {
                 return null;

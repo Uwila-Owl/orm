@@ -1,4 +1,3 @@
-
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.sql.Connection;
@@ -75,7 +74,7 @@ public class MdpOublie extends JDialog {
         setVisible(true);
     }
 
-    // Fenêtre "Je connais mon ID" avec design harmonisé
+    // Fenêtre "Je connais mon ID" avec design harmonisé et sécurité améliorée
     private class ConnaitreIdDialog extends JDialog {
 
         private JTextField idField;
@@ -173,19 +172,33 @@ public class MdpOublie extends JDialog {
                 return;
             }
 
-            try (Connection connection = connexionBdd.getConnection(); PreparedStatement ps = connection.prepareStatement(
-                    "SELECT * FROM utilisateurs WHERE ID = ? AND email = ?")) {
+            // Validation mot de passe
+            if (newPassword.length() < 6) {
+                JOptionPane.showMessageDialog(this, "Le mot de passe doit contenir au moins 6 caractères.");
+                return;
+            }
+
+            try (Connection connection = connexionBdd.getConnection(); 
+                 PreparedStatement ps = connection.prepareStatement(
+                    "SELECT nom, prenom FROM utilisateurs WHERE ID = ? AND email = ? AND active = TRUE")) {
                 ps.setString(1, id);
                 ps.setString(2, email);
                 ResultSet rs = ps.executeQuery();
                 if (rs.next()) {
+                    String nom = rs.getString("nom");
+                    String prenom = rs.getString("prenom");
+                    
+                    // Mise à jour sécurisée avec cryptage
                     try (PreparedStatement updatePs = connection.prepareStatement(
-                            "UPDATE utilisateurs SET Password = ? WHERE ID = ?")) {
+                            "UPDATE utilisateurs SET Password = crypt(?, gen_salt('bf')), password_reset_required = FALSE WHERE ID = ?")) {
                         updatePs.setString(1, newPassword);
                         updatePs.setString(2, id);
                         int updated = updatePs.executeUpdate();
                         if (updated > 0) {
-                            JOptionPane.showMessageDialog(this, "Mot de passe mis à jour avec succès.");
+                            String userName = (prenom != null ? prenom + " " : "") + (nom != null ? nom : "");
+                            JOptionPane.showMessageDialog(this, 
+                                "Mot de passe mis à jour avec succès" + 
+                                (!userName.trim().isEmpty() ? " pour " + userName.trim() : "") + ".");
                             dispose();
                             parent.setVisible(true);
                         } else {
@@ -193,7 +206,7 @@ public class MdpOublie extends JDialog {
                         }
                     }
                 } else {
-                    JOptionPane.showMessageDialog(this, "Couple ID et Email non trouvé.");
+                    JOptionPane.showMessageDialog(this, "Couple ID/Email non trouvé ou compte inactif.");
                 }
             } catch (SQLException ex) {
                 JOptionPane.showMessageDialog(this, "Erreur base de données: " + ex.getMessage());
@@ -201,7 +214,7 @@ public class MdpOublie extends JDialog {
         }
     }
 
-    // Fenêtre "Je ne connais pas mon ID" avec design harmonisé
+    // Fenêtre "Je ne connais pas mon ID" avec design harmonisé et validation améliorée
     private class NePasConnaitreIdDialog extends JDialog {
 
         private JTextField emailField;
@@ -274,24 +287,44 @@ public class MdpOublie extends JDialog {
             setVisible(true);
         }
 
+        private boolean isValidEmail(String email) {
+            return email != null && email.contains("@") && email.contains(".") 
+                   && email.length() > 5 && !email.startsWith("@") && !email.endsWith("@");
+        }
+
         private void rechercherId() {
             String email = emailField.getText().trim();
             if (email.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Veuillez saisir un email.");
                 return;
             }
+            
+            // Validation email
+            if (!isValidEmail(email)) {
+                JOptionPane.showMessageDialog(this, "Format d'email invalide.");
+                return;
+            }
 
-            try (Connection connection = connexionBdd.getConnection(); PreparedStatement ps = connection.prepareStatement(
-                    "SELECT ID FROM utilisateurs WHERE email = ?")) {
+            try (Connection connection = connexionBdd.getConnection(); 
+                 PreparedStatement ps = connection.prepareStatement(
+                    "SELECT ID, nom, prenom FROM utilisateurs WHERE email = ? AND active = TRUE")) {
                 ps.setString(1, email);
                 ResultSet rs = ps.executeQuery();
                 if (rs.next()) {
                     String id = rs.getString("ID");
-                    resultLabel.setForeground(new Color(0, 128, 0)); // vert
-                    resultLabel.setText("ID trouvé : " + id);
+                    String nom = rs.getString("nom");
+                    String prenom = rs.getString("prenom");
+                    
+                    String displayName = "";
+                    if (prenom != null && nom != null) {
+                        displayName = " (" + prenom + " " + nom + ")";
+                    }
+                    
+                    resultLabel.setForeground(new Color(0, 128, 0));
+                    resultLabel.setText("ID trouvé : " + id + displayName);
                 } else {
                     resultLabel.setForeground(Color.RED);
-                    resultLabel.setText("<html>Email non trouvé.<br>Veuillez contacter les administrateurs.</html>");
+                    resultLabel.setText("<html>Email non trouvé ou compte inactif.<br>Contactez les administrateurs.</html>");
                 }
             } catch (SQLException ex) {
                 JOptionPane.showMessageDialog(this, "Erreur base de données: " + ex.getMessage());
@@ -299,3 +332,4 @@ public class MdpOublie extends JDialog {
         }
     }
 }
+
