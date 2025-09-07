@@ -22,6 +22,13 @@ public class InterfaceGenerateurUML extends Application {
     private ToggleButton btnERD;
     private Stage primaryStage;
     private BarreOutils leftBar;
+    
+      // 🆕 AJOUT De constructeur (sans paramètres) (Eric)
+    public InterfaceGenerateurUML() {
+        // Ce constructeur peut être complètement vide
+        // Les valeurs par défaut sont déjà définies ci-dessus (-1 et "Nouveau Schéma")
+    }
+
 
     public InterfaceGenerateurUML(int schemaId, String schemaName) {
         this.currentSchemaId = schemaId;
@@ -33,7 +40,7 @@ public class InterfaceGenerateurUML extends Application {
         this.primaryStage = primaryStage;
 
         MenuBar menuBar = NavigationMenu.createMenuBar(primaryStage);
-        menuBar.setStyle("-fx-background-color: #3E5871;");
+        menuBar.setStyle("-fx-background-color: #048B9A;");
 
         ToggleGroup group = new ToggleGroup();
         btnUML = new ToggleButton("UML");
