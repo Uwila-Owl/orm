@@ -1,21 +1,13 @@
 
-import javafx.application.Application;
+import javafx.embed.swing.JFXPanel;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javafx.application.Platform;
-import javafx.embed.swing.JFXPanel;
-import java.awt.Cursor;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 
 public class FenetreLogin extends JFrame {
 
@@ -23,8 +15,8 @@ public class FenetreLogin extends JFrame {
     private JTextField idField;
     private JPasswordField passwordField;
     private ConnexionBdd connexionBdd;
-    private JPanel connectionIndicator; // indicateur lumineux
-    private JLabel messageLabel; // label pour afficher messages
+    private JPanel connectionIndicator;
+    private JLabel messageLabel;
 
     public FenetreLogin() {
         super("Authentification");
@@ -38,7 +30,7 @@ public class FenetreLogin extends JFrame {
         Color btnColor = Color.decode("#3E5871");
         Color textColor = Color.decode("#EAECEE");
 
-        // Panel principal avec GridBagLayout
+        // Panel principal
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(bgColor);
         GridBagConstraints gbc = new GridBagConstraints();
@@ -63,28 +55,6 @@ public class FenetreLogin extends JFrame {
         passwordLabel.setHorizontalAlignment(SwingConstants.CENTER);
         gbc.gridy = 2;
         panel.add(passwordLabel, gbc);
-
-        // Lien "Mot de passe oublié ?"
-        JLabel forgotPasswordLabel = new JLabel("<HTML><U>Mot de passe oublié ?</U></HTML>");
-        forgotPasswordLabel.setForeground(Color.BLUE);
-        forgotPasswordLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        forgotPasswordLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        GridBagConstraints gbcForgot = new GridBagConstraints();
-        gbcForgot.gridx = 0;
-        gbcForgot.gridy = 7;
-        gbcForgot.gridwidth = 2;
-        gbcForgot.insets = new Insets(5, 10, 10, 10);
-        gbcForgot.fill = GridBagConstraints.HORIZONTAL;
-        panel.add(forgotPasswordLabel, gbcForgot);
-
-        forgotPasswordLabel.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                SwingUtilities.invokeLater(() -> {
-                    new MdpOublie(FenetreLogin.this, connexionBdd);
-                });
-            }
-        });
 
         // Champ mot de passe
         passwordField = new JPasswordField(15);
@@ -117,7 +87,7 @@ public class FenetreLogin extends JFrame {
         gbc.gridwidth = 2;
         panel.add(cancelButton, gbc);
 
-        // Label message (vide au départ)
+        // Label message
         messageLabel = new JLabel(" ");
         messageLabel.setHorizontalAlignment(SwingConstants.CENTER);
         messageLabel.setForeground(Color.BLUE);
@@ -129,10 +99,9 @@ public class FenetreLogin extends JFrame {
         gbcMessage.fill = GridBagConstraints.HORIZONTAL;
         panel.add(messageLabel, gbcMessage);
 
-        // Ajout du panel principal à la JFrame
         setContentPane(panel);
 
-        // Création de l'indicateur lumineux (20x20 px)
+        // Indicateur connexion
         connectionIndicator = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -144,7 +113,6 @@ public class FenetreLogin extends JFrame {
         connectionIndicator.setSize(20, 20);
         connectionIndicator.setOpaque(false);
 
-        // Tester la connexion et définir la couleur et tooltip
         try (Connection testConn = connexionBdd.getConnection()) {
             if (testConn != null && !testConn.isClosed()) {
                 connectionIndicator.setBackground(Color.GREEN);
@@ -158,47 +126,9 @@ public class FenetreLogin extends JFrame {
             connectionIndicator.setToolTipText("Connexion à la Base de donnée : ko");
         }
 
-        // Ajouter l'indicateur dans la couche supérieure (layered pane)
         JLayeredPane layeredPane = getLayeredPane();
         layeredPane.add(connectionIndicator, JLayeredPane.PALETTE_LAYER);
-        connectionIndicator.setLocation(5, 5); // position en haut à gauche avec un petit décalage
-
-        // === Ajout du lien "Nous Contacter" en haut à droite ===
-        final int margin = 10;
-        JLabel contactLabel = new JLabel("<HTML><U>Nous Contacter</U></HTML>");
-        contactLabel.setForeground(Color.BLUE);
-        contactLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        layeredPane.add(contactLabel, JLayeredPane.PALETTE_LAYER);
-
-        // fonction pour bien placer le label
-        Runnable placeContact = () -> {
-            Dimension pref = contactLabel.getPreferredSize();
-            contactLabel.setSize(pref); // indispensable pour éviter le troncage
-            int x = layeredPane.getWidth() - pref.width - margin; // largeur réelle du layeredPane
-            int y = margin;
-            contactLabel.setLocation(Math.max(margin, x), y);
-        };
-
-        // position initiale après rendu
-        SwingUtilities.invokeLater(placeContact);
-
-        // repositionnement dynamique si la fenêtre est redimensionnée
-        layeredPane.addComponentListener(new java.awt.event.ComponentAdapter() {
-            @Override
-            public void componentResized(java.awt.event.ComponentEvent e) {
-                placeContact.run();
-            }
-        });
-
-        // Action au clic → ouverture de Contact.java
-        contactLabel.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                SwingUtilities.invokeLater(() -> {
-                    new Contact(FenetreLogin.this); // adapte si ton constructeur diffère
-                });
-            }
-        });
+        connectionIndicator.setLocation(5, 5);
 
         // Action commune pour OK et Entrée
         Action okAction = new AbstractAction() {
@@ -212,9 +142,15 @@ public class FenetreLogin extends JFrame {
                     return;
                 }
 
-                Boolean isSuperviseur = authentifierEtVerifierSupvis(id, password);
-                if (isSuperviseur == null) {
+                AuthResult result = authentifierEtVerifierSupvis(id, password);
+                if (result == null) {
                     JOptionPane.showMessageDialog(FenetreLogin.this, "Authentification échouée.");
+                    return;
+                }
+
+                if (result.resetRequired) {
+                    // Forcer le changement de mot de passe
+                    ouvrirFenetreChangementMotDePasse(id);
                     return;
                 }
 
@@ -228,14 +164,11 @@ public class FenetreLogin extends JFrame {
                 Timer timer = new Timer(3000, evt -> {
                     FenetreLogin.this.dispose();
                     SwingUtilities.invokeLater(() -> {
-                        if (isSuperviseur) {
-                            // Pour les superviseurs, lancez la fenêtre de Supervision en passant l'ID
+                        if (result.isSuperviseur) {
                             new Supervision(connexionBdd, id);
                         } else {
-                            // Pour les utilisateurs normaux, lancez la fenêtre Ventilation en passant l'ID
                             new Ventilation(FenetreLogin.this, connexionBdd, id);
                         }
-
                     });
                 });
                 timer.setRepeats(false);
@@ -243,28 +176,41 @@ public class FenetreLogin extends JFrame {
             }
         };
 
-        // Associer action au bouton et aux champs
         okButton.addActionListener(okAction);
         idField.addActionListener(okAction);
         passwordField.addActionListener(okAction);
 
-        // Actions autres boutons
         createButton.addActionListener(e -> ouvrirFenetreCreation());
         cancelButton.addActionListener(e -> System.exit(0));
 
         setVisible(true);
     }
 
-    private Boolean authentifierEtVerifierSupvis(String id, String password) {
+    // ===== Résultat authentification =====
+    private class AuthResult {
+
+        Boolean isSuperviseur;
+        Boolean resetRequired;
+
+        AuthResult(Boolean isSuperviseur, Boolean resetRequired) {
+            this.isSuperviseur = isSuperviseur;
+            this.resetRequired = resetRequired;
+        }
+    }
+
+    private AuthResult authentifierEtVerifierSupvis(String id, String password) {
         try (Connection connection = connexionBdd.getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(
-                "SELECT supvis FROM utilisateurs "
+                "SELECT supvis, password_reset_required FROM utilisateurs "
                 + "WHERE ID = ? AND Password = crypt(?, Password) AND active = TRUE")) {
 
             preparedStatement.setString(1, id);
             preparedStatement.setString(2, password);
             ResultSet resultSet = preparedStatement.executeQuery();
             if (resultSet.next()) {
-                return resultSet.getBoolean("supvis");
+                return new AuthResult(
+                        resultSet.getBoolean("supvis"),
+                        resultSet.getBoolean("password_reset_required")
+                );
             } else {
                 return null;
             }
@@ -275,9 +221,86 @@ public class FenetreLogin extends JFrame {
         }
     }
 
+    // ===== Fenêtre changement mot de passe =====
+    private void ouvrirFenetreChangementMotDePasse(String userId) {
+        JDialog dialog = new JDialog(this, "Changer votre mot de passe", true);
+        dialog.setSize(400, 200);
+        dialog.setLocationRelativeTo(this);
+
+        JPanel panel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        JLabel newPassLabel = new JLabel("Nouveau mot de passe :");
+        JPasswordField newPassField = new JPasswordField(15);
+
+        JLabel confirmPassLabel = new JLabel("Confirmer :");
+        JPasswordField confirmPassField = new JPasswordField(15);
+
+        JButton saveButton = new JButton("Enregistrer");
+
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        panel.add(newPassLabel, gbc);
+        gbc.gridx = 1;
+        panel.add(newPassField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        panel.add(confirmPassLabel, gbc);
+        gbc.gridx = 1;
+        panel.add(confirmPassField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.gridwidth = 2;
+        panel.add(saveButton, gbc);
+
+        dialog.setContentPane(panel);
+
+        saveButton.addActionListener(e -> {
+            String pass1 = new String(newPassField.getPassword()).trim();
+            String pass2 = new String(confirmPassField.getPassword()).trim();
+
+            if (pass1.isEmpty() || pass2.isEmpty()) {
+                JOptionPane.showMessageDialog(dialog, "Veuillez remplir les deux champs.");
+                return;
+            }
+            if (!pass1.equals(pass2)) {
+                JOptionPane.showMessageDialog(dialog, "Les mots de passe ne correspondent pas.");
+                return;
+            }
+
+            if (mettreAJourMotDePasse(userId, pass1)) {
+                JOptionPane.showMessageDialog(dialog, "Mot de passe mis à jour. Veuillez vous reconnecter.");
+                dialog.dispose();
+            } else {
+                JOptionPane.showMessageDialog(dialog, "Erreur lors de la mise à jour du mot de passe.");
+            }
+        });
+
+        dialog.setVisible(true);
+    }
+
+    private boolean mettreAJourMotDePasse(String id, String newPassword) {
+        try (Connection connection = connexionBdd.getConnection(); PreparedStatement ps = connection.prepareStatement(
+                "UPDATE utilisateurs SET Password = crypt(?, gen_salt('bf')), password_reset_required = FALSE WHERE ID = ?")) {
+
+            ps.setString(1, newPassword);
+            ps.setString(2, id);
+            return ps.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Erreur lors de la mise à jour du mot de passe: " + e.getMessage(), e);
+            return false;
+        }
+    }
+
+    // ===== Fenêtre création utilisateur =====
     private void ouvrirFenetreCreation() {
         JDialog creationDialog = new JDialog(this, "Création d'utilisateur", true);
-        creationDialog.setSize(400, 400); // un peu plus grand pour le champ mot de passe
+        creationDialog.setSize(400, 400);
         creationDialog.setLocationRelativeTo(this);
 
         JPanel panel = new JPanel(new GridBagLayout());
@@ -286,16 +309,8 @@ public class FenetreLogin extends JFrame {
         gbc.insets = new Insets(8, 10, 8, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // Labels et champs
         JLabel idLabel = new JLabel("ID:");
         JTextField idField = new JTextField(15);
-
-        // Icône avec infobulle
-        Icon questionIcon = UIManager.getIcon("OptionPane.questionIcon");
-        JLabel infoIcon = new JLabel(questionIcon);
-        infoIcon.setToolTipText("L'ID doit être le numéro étudiant");
-        infoIcon.setForeground(Color.BLUE);
-        infoIcon.setFont(new Font("Arial", Font.BOLD, 16));
 
         JLabel nomLabel = new JLabel("Nom:");
         JTextField nomField = new JTextField(15);
@@ -314,66 +329,45 @@ public class FenetreLogin extends JFrame {
 
         JButton createButton = new JButton("Créer");
 
-        // Positionnement avec GridBagLayout
         gbc.gridx = 0;
         gbc.gridy = 0;
-        gbc.gridwidth = 1;
         panel.add(idLabel, gbc);
-
         gbc.gridx = 1;
         panel.add(idField, gbc);
-
-        gbc.gridx = 2;
-        panel.add(infoIcon, gbc);
 
         gbc.gridx = 0;
         gbc.gridy = 1;
         panel.add(nomLabel, gbc);
-
         gbc.gridx = 1;
-        gbc.gridwidth = 2;
         panel.add(nomField, gbc);
 
         gbc.gridx = 0;
         gbc.gridy = 2;
-        gbc.gridwidth = 1;
         panel.add(prenomLabel, gbc);
-
         gbc.gridx = 1;
-        gbc.gridwidth = 2;
         panel.add(prenomField, gbc);
 
         gbc.gridx = 0;
         gbc.gridy = 3;
-        gbc.gridwidth = 1;
         panel.add(emailLabel, gbc);
-
         gbc.gridx = 1;
-        gbc.gridwidth = 2;
         panel.add(emailField, gbc);
 
         gbc.gridx = 0;
         gbc.gridy = 4;
-        gbc.gridwidth = 1;
         panel.add(idDiscordLabel, gbc);
-
         gbc.gridx = 1;
-        gbc.gridwidth = 2;
         panel.add(idDiscordField, gbc);
 
         gbc.gridx = 0;
         gbc.gridy = 5;
-        gbc.gridwidth = 1;
         panel.add(passwordLabel, gbc);
-
         gbc.gridx = 1;
-        gbc.gridwidth = 2;
         panel.add(passwordField, gbc);
 
         gbc.gridx = 0;
         gbc.gridy = 6;
-        gbc.gridwidth = 3;
-        gbc.anchor = GridBagConstraints.CENTER;
+        gbc.gridwidth = 2;
         panel.add(createButton, gbc);
 
         creationDialog.setContentPane(panel);
@@ -386,9 +380,8 @@ public class FenetreLogin extends JFrame {
             String idDiscord = idDiscordField.getText().trim();
             String password = new String(passwordField.getPassword()).trim();
 
-            // Validation des champs obligatoires
             if (id.isEmpty() || nom.isEmpty() || prenom.isEmpty() || email.isEmpty() || password.isEmpty()) {
-                JOptionPane.showMessageDialog(creationDialog, "Veuillez remplir tous les champs obligatoires (ID, Nom, Prénom, Email, Mot de passe).");
+                JOptionPane.showMessageDialog(creationDialog, "Veuillez remplir tous les champs obligatoires.");
                 return;
             }
 
@@ -407,26 +400,25 @@ public class FenetreLogin extends JFrame {
 
     private boolean creerUtilisateur(String id, String nom, String prenom, String email, String idDiscord, String password) {
         try (Connection connection = connexionBdd.getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(
-                "INSERT INTO utilisateurs (ID, Password, active, supvis, date, nom, prenom, email, id_discord) "
-                + "VALUES (?, crypt(?, gen_salt('bf')), ?, ?, ?, ?, ?, ?, ?)")) {
+                "INSERT INTO utilisateurs (ID, Password, active, supvis, date, nom, prenom, email, id_discord, password_reset_required) "
+                + "VALUES (?, crypt(?, gen_salt('bf')), ?, ?, ?, ?, ?, ?, ?, ?)")) {
 
             preparedStatement.setString(1, id);
-            preparedStatement.setString(2, password); // Postgres le hache
+            preparedStatement.setString(2, password);
             preparedStatement.setBoolean(3, true);
             preparedStatement.setBoolean(4, false);
             preparedStatement.setTimestamp(5, Timestamp.valueOf(LocalDateTime.now()));
             preparedStatement.setString(6, nom);
             preparedStatement.setString(7, prenom);
             preparedStatement.setString(8, email);
-
             if (idDiscord.isEmpty()) {
                 preparedStatement.setNull(9, java.sql.Types.VARCHAR);
             } else {
                 preparedStatement.setString(9, idDiscord);
             }
+            preparedStatement.setBoolean(10, false); // par défaut pas de reset demandé
 
-            int rowsAffected = preparedStatement.executeUpdate();
-            return rowsAffected > 0;
+            return preparedStatement.executeUpdate() > 0;
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Erreur lors de la création de l'utilisateur: " + e.getMessage(), e);
             JOptionPane.showMessageDialog(this, "Erreur lors de la création de l'utilisateur: " + e.getMessage());
@@ -435,7 +427,7 @@ public class FenetreLogin extends JFrame {
     }
 
     public static void main(String[] args) {
-        new JFXPanel(); // Initialisation JavaFX
+        new JFXPanel();
         SwingUtilities.invokeLater(FenetreLogin::new);
     }
 }
