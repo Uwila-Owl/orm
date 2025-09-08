@@ -1,7 +1,8 @@
+
 import javafx.embed.swing.JFXPanel;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
+import java.awt.event.*;
 import java.sql.*;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -21,7 +22,7 @@ public class FenetreLogin extends JFrame {
         super("Authentification");
         connexionBdd = new ConnexionBdd();
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(520, 420); // Augmenté pour le nouveau bouton
+        setSize(520, 420);
         setLocationRelativeTo(null);
 
         // Couleurs
@@ -29,7 +30,7 @@ public class FenetreLogin extends JFrame {
         Color btnColor = Color.decode("#3E5871");
         Color textColor = Color.decode("#EAECEE");
 
-        // Panel principal
+        // Panel principal avec GridBagLayout
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(bgColor);
         GridBagConstraints gbc = new GridBagConstraints();
@@ -60,13 +61,30 @@ public class FenetreLogin extends JFrame {
         gbc.gridy = 3;
         panel.add(passwordField, gbc);
 
-        // Boutons
+        // Lien "Mot de passe oublié ?"
+        JLabel forgotPasswordLink = new JLabel("<html><a href=''>Mot de passe oublié ?</a></html>");
+        forgotPasswordLink.setForeground(Color.BLUE);
+        forgotPasswordLink.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        forgotPasswordLink.setHorizontalAlignment(SwingConstants.CENTER);
+        gbc.gridy = 4;
+        gbc.gridwidth = 2;
+        gbc.anchor = GridBagConstraints.CENTER;
+        panel.add(forgotPasswordLink, gbc);
+
+        forgotPasswordLink.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                FenetreLogin.this.setVisible(false);
+                SwingUtilities.invokeLater(() -> new MdpOublie(FenetreLogin.this, connexionBdd));
+            }
+        });
+
+        // Boutons OK, Créer, Annuler
         JButton okButton = new JButton("OK");
         JButton createButton = new JButton("Créer");
         JButton cancelButton = new JButton("Annuler");
-        JButton forgotPasswordButton = new JButton("Mot de passe oublié");
 
-        JButton[] buttons = {okButton, createButton, cancelButton, forgotPasswordButton};
+        JButton[] buttons = {okButton, createButton, cancelButton};
         for (JButton b : buttons) {
             b.setBackground(btnColor);
             b.setForeground(textColor);
@@ -75,21 +93,18 @@ public class FenetreLogin extends JFrame {
         }
 
         gbc.gridwidth = 1;
-        gbc.gridy = 4;
+        gbc.gridy = 5;
         gbc.gridx = 0;
+        gbc.anchor = GridBagConstraints.CENTER;
         panel.add(okButton, gbc);
 
         gbc.gridx = 1;
         panel.add(createButton, gbc);
 
         gbc.gridx = 0;
-        gbc.gridy = 5;
+        gbc.gridy = 6;
         gbc.gridwidth = 2;
         panel.add(cancelButton, gbc);
-
-        // Nouveau bouton mot de passe oublié
-        gbc.gridy = 6;
-        panel.add(forgotPasswordButton, gbc);
 
         // Label message
         messageLabel = new JLabel(" ");
@@ -103,9 +118,30 @@ public class FenetreLogin extends JFrame {
         gbcMessage.fill = GridBagConstraints.HORIZONTAL;
         panel.add(messageLabel, gbcMessage);
 
-        setContentPane(panel);
+        // Panel top avec lien "Nous contacter"
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.setBackground(bgColor);
 
-        // Indicateur connexion
+        JLabel contactLink = new JLabel("<html><a href=''>Nous contacter</a></html>");
+        contactLink.setForeground(Color.BLUE);
+        contactLink.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        contactLink.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 10));
+
+        topPanel.add(contactLink, BorderLayout.EAST);
+
+        contactLink.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                new Contact(FenetreLogin.this);
+            }
+        });
+
+        // Remplacer setContentPane(panel) par un BorderLayout avec topPanel en haut
+        getContentPane().setLayout(new BorderLayout());
+        getContentPane().add(topPanel, BorderLayout.NORTH);
+        getContentPane().add(panel, BorderLayout.CENTER);
+
+        // Indicateur connexion (inchangé)
         connectionIndicator = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -134,7 +170,7 @@ public class FenetreLogin extends JFrame {
         layeredPane.add(connectionIndicator, JLayeredPane.PALETTE_LAYER);
         connectionIndicator.setLocation(5, 5);
 
-        // Action commune pour OK et Entrée
+        // Action commune pour OK et Entrée (inchangé)
         Action okAction = new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -153,7 +189,6 @@ public class FenetreLogin extends JFrame {
                 }
 
                 if (result.resetRequired) {
-                    // Forcer le changement de mot de passe
                     ouvrirFenetreChangementMotDePasse(id);
                     return;
                 }
@@ -164,7 +199,6 @@ public class FenetreLogin extends JFrame {
                 okButton.setEnabled(false);
                 createButton.setEnabled(false);
                 cancelButton.setEnabled(false);
-                forgotPasswordButton.setEnabled(false);
 
                 Timer timer = new Timer(3000, evt -> {
                     FenetreLogin.this.dispose();
@@ -187,12 +221,6 @@ public class FenetreLogin extends JFrame {
 
         createButton.addActionListener(e -> ouvrirFenetreCreation());
         cancelButton.addActionListener(e -> System.exit(0));
-        
-        // Action pour le bouton mot de passe oublié
-        forgotPasswordButton.addActionListener(e -> {
-            this.setVisible(false);
-            SwingUtilities.invokeLater(() -> new MdpOublie(this, connexionBdd));
-        });
 
         setVisible(true);
     }
@@ -210,29 +238,28 @@ public class FenetreLogin extends JFrame {
     }
 
     private AuthResult authentifierEtVerifierSupvis(String id, String password) {
-        try (Connection connection = connexionBdd.getConnection(); 
-             PreparedStatement preparedStatement = connection.prepareStatement(
-                "SELECT supvis, password_reset_required, nom, prenom, email " +
-                "FROM utilisateurs " +
-                "WHERE ID = ? AND Password = crypt(?, Password) AND active = TRUE")) {
+        try (Connection connection = connexionBdd.getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(
+                "SELECT supvis, password_reset_required, nom, prenom, email "
+                + "FROM utilisateurs "
+                + "WHERE ID = ? AND Password = crypt(?, Password) AND active = TRUE")) {
 
             preparedStatement.setString(1, id);
             preparedStatement.setString(2, password);
             ResultSet resultSet = preparedStatement.executeQuery();
-            
+
             if (resultSet.next()) {
                 // Stocker les informations utilisateur dans la session
                 UserSession.getInstance().setUserInfo(
-                    id,
-                    resultSet.getString("nom"),
-                    resultSet.getString("prenom"),
-                    resultSet.getString("email"),
-                    resultSet.getBoolean("supvis")
+                        id,
+                        resultSet.getString("nom"),
+                        resultSet.getString("prenom"),
+                        resultSet.getString("email"),
+                        resultSet.getBoolean("supvis")
                 );
-                
+
                 return new AuthResult(
-                    resultSet.getBoolean("supvis"),
-                    resultSet.getBoolean("password_reset_required")
+                        resultSet.getBoolean("supvis"),
+                        resultSet.getBoolean("password_reset_required")
                 );
             } else {
                 return null;
