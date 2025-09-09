@@ -22,6 +22,9 @@ import javafx.scene.text.FontPosture;
 
 public class Visuel {
 
+    private LogDAO logDAO = new LogDAO();
+    String userId = UserSession.getInstance().getUserId();
+
     private double zoomFactor = 1.0;
 
     public void ajouterEntite(Group entiteVisuelle, Map<String, Object> entite, String typeSchema) {
@@ -137,10 +140,10 @@ public class Visuel {
     }
 
     private void annulAction() {
-        System.out.println("Action annulée");
+        logDAO.insertLog(userId, "Action annulée", "INFO");
     }
 
     private void retabAction() {
-        System.out.println("Action rétablie");
+        logDAO.insertLog(userId, "Action rétablie", "INFO");
     }
 }

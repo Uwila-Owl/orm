@@ -14,6 +14,8 @@ import java.util.logging.Logger;
 public class RelationDAO {
 
     private static final Logger LOGGER = Logger.getLogger(RelationDAO.class.getName());
+    private LogDAO logDAO = new LogDAO();
+    String userId = UserSession.getInstance().getUserId();
 
     public List<Map<String, Object>> getAllRelations() {
         List<Map<String, Object>> relations = new ArrayList<>();
@@ -32,7 +34,7 @@ public class RelationDAO {
                 relations.add(relation);
             }
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors de la récupération des relations : " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors de la récupération des relations : " + e.getMessage(), "SEVERE");
         }
         return relations;
     }
@@ -64,10 +66,10 @@ public class RelationDAO {
                         id = rs.getInt(1);
                     }
                 }
-                LOGGER.info("Insertion réussie dans la table 'relations' avec l'ID : " + id);
+                logDAO.insertLog(userId, "Insertion réussie dans la table 'relations' avec l'ID : " + id, "INFO");
             }
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors de l'insertion dans la table 'relations' : " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors de l'insertion dans la table 'relations' : " + e.getMessage(), "SEVERE");
         }
         return id;
     }
@@ -88,10 +90,10 @@ public class RelationDAO {
 
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
-                LOGGER.info("Mise à jour réussie de la relation ID : " + relationId);
+                logDAO.insertLog(userId, "Mise à jour réussie de la relation ID : " + relationId, "INFO");
             }
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors de la mise à jour de la relation : " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors de la mise à jour de la relation : " + e.getMessage(), "SEVERE");
         }
     }
 
@@ -106,12 +108,12 @@ public class RelationDAO {
             pstmt.setInt(1, relationId);
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
-                LOGGER.info("Suppression réussie de la relation avec l'ID : " + relationId);
+                logDAO.insertLog(userId, "Suppression réussie de la relation avec l'ID : " + relationId, "INFO");
             } else {
-                LOGGER.warning("Aucune relation trouvée avec l'ID : " + relationId);
+                logDAO.insertLog(userId, "Aucune relation trouvée avec l'ID : " + relationId, "WARNING");
             }
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors de la suppression de la relation : " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors de la suppression de la relation : " + e.getMessage(), "SEVERE");
         }
     }
 
@@ -127,9 +129,9 @@ public class RelationDAO {
             pstmt.setInt(1, schemaId);
             pstmt.setInt(2, schemaId);
             int affectedRows = pstmt.executeUpdate();
-            LOGGER.info("Suppression de " + affectedRows + " relations pour le schéma ID : " + schemaId);
+            logDAO.insertLog(userId, "Suppression de " + affectedRows + " relations pour le schéma ID : " + schemaId, "INFO");
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors de la suppression des relations par schéma : " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors de la suppression des relations par schéma : " + e.getMessage(), "SEVERE");
         }
     }
 
@@ -155,7 +157,7 @@ public class RelationDAO {
                 }
             }
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors de la récupération de la relation : " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors de la récupération de la relation : " + e.getMessage(), "SEVERE");
         }
         return null;
     }

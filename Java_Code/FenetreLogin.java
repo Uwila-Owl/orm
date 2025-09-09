@@ -17,6 +17,8 @@ public class FenetreLogin extends JFrame {
     private ConnexionBdd connexionBdd;
     private JPanel connectionIndicator;
     private JLabel messageLabel;
+    private LogDAO logDAO = new LogDAO();
+    String userId = UserSession.getInstance().getUserId();
 
     public FenetreLogin() {
         super("Authentification");
@@ -265,7 +267,7 @@ public class FenetreLogin extends JFrame {
                 return null;
             }
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors de l'authentification: " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors de l'authentification: " + e.getMessage(), "SEVERE");
             JOptionPane.showMessageDialog(this, "Erreur lors de la vérification de l'utilisateur.");
             return null;
         }
@@ -342,7 +344,7 @@ public class FenetreLogin extends JFrame {
             return ps.executeUpdate() > 0;
 
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors de la mise à jour du mot de passe: " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors de la mise à jour du mot de passe: " + e.getMessage(), "SEVERE");
             return false;
         }
     }
@@ -470,7 +472,7 @@ public class FenetreLogin extends JFrame {
 
             return preparedStatement.executeUpdate() > 0;
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors de la création de l'utilisateur: " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors de la création de l'utilisateur: " + e.getMessage(), "SEVERE");
             JOptionPane.showMessageDialog(this, "Erreur lors de la création de l'utilisateur: " + e.getMessage());
             return false;
         }

@@ -12,7 +12,7 @@ import java.util.logging.Logger;
 public class PanneauProprietes extends VBox {
 
     private static final Logger LOGGER = Logger.getLogger(PanneauProprietes.class.getName());
-
+    private LogDAO logDAO = new LogDAO();
     private TextField tfNom;
     private TextField tfNomRelation; // Nouveau champ
     private TextField tfAttrNom;
@@ -27,6 +27,7 @@ public class PanneauProprietes extends VBox {
     private Button btnCreerLien;
     private Button btnAjoutAttr;
     private RadioButton rbPK, rbFK;
+    String userId = UserSession.getInstance().getUserId();
 
     public PanneauProprietes(ZoneModelisation zone) {
         this.zone = zone;
@@ -121,11 +122,11 @@ public class PanneauProprietes extends VBox {
                                 typeSchema
                         );
 
-                        LOGGER.info("Relation créée en BDD avec ID = " + relationId);
+                        logDAO.insertLog(userId, "Relation créée en BDD avec ID = " + relationId, "INFO");
                         zone.creerLienEntreEntites(entiteCourante, cible, typeLien);
 
                     } catch (Exception ex) {
-                        LOGGER.severe("Erreur lors de la création de la relation : " + ex.getMessage());
+                        logDAO.insertLog(userId, "Erreur lors de la création de la relation : " + ex.getMessage(), "SEVERE");
                     }
                 }
             }

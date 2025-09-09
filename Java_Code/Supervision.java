@@ -22,6 +22,8 @@ public class Supervision extends JFrame {
 
     private ConnexionBdd connexionBdd = new ConnexionBdd();
     private String idSuperviseur;
+    private LogDAO logDAO = new LogDAO();
+    String userId = UserSession.getInstance().getUserId();
 
     private final Color bgColor = Color.decode("#D6E3F3");
     private final Color btnColor = Color.decode("#3E5871");

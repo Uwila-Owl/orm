@@ -10,7 +10,9 @@ import java.util.logging.Logger;
 public class EntiteDAO {
 
     private static final Logger LOGGER = Logger.getLogger(EntiteDAO.class.getName());
-    private AttributDAO attributDAO = new AttributDAO(); // Ajouter cette ligne
+    private AttributDAO attributDAO = new AttributDAO();
+    private LogDAO logDAO = new LogDAO();
+    String userId = UserSession.getInstance().getUserId();
 
     /**
      * Insère une nouvelle entité dans la table 'entites' et retourne l'ID
@@ -36,10 +38,10 @@ public class EntiteDAO {
                         id = rs.getInt(1);
                     }
                 }
-                LOGGER.info("Insertion réussie dans la table 'entites' avec l'ID : " + id);
+                logDAO.insertLog(userId, "Insertion réussie dans la table 'entites' avec l'ID : " + id, "INFO");
             }
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors de l'insertion dans la table 'entites' : " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors de l'insertion dans la table 'entites' : " + e.getMessage(), "SEVERE");
         }
         return id;
     }
@@ -59,10 +61,10 @@ public class EntiteDAO {
             int affectedRows = pstmt.executeUpdate();
 
             if (affectedRows > 0) {
-                LOGGER.info("Position mise à jour pour l'entité ID : " + entiteId);
+                logDAO.insertLog(userId, "Position mise à jour pour l'entité ID : " + entiteId, "INFO");
             }
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors de la mise à jour de la position : " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors de la mise à jour de la position : " + e.getMessage(), "SEVERE");
         }
     }
 
@@ -85,10 +87,10 @@ public class EntiteDAO {
                 int affectedRows = pstmt.executeUpdate();
 
                 if (affectedRows > 0) {
-                    LOGGER.info("Suppression réussie de l'entité avec l'ID : " + entiteId);
+                    logDAO.insertLog(userId, "Suppression réussie de l'entité avec l'ID : " + entiteId, "INFO");
                     conn.commit(); // Valider la transaction
                 } else {
-                    LOGGER.warning("Aucune entité trouvée avec l'ID : " + entiteId);
+                    logDAO.insertLog(userId, "Aucune entité trouvée avec l'ID : " + entiteId, "WARNING");
                     conn.rollback(); // Annuler la transaction
                 }
             } catch (SQLException e) {
@@ -98,7 +100,7 @@ public class EntiteDAO {
                 conn.setAutoCommit(true); // Rétablir l'auto-commit
             }
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors de la suppression de l'entité : " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors de la suppression de l'entité : " + e.getMessage(), "SEVERE");
         }
     }
 }

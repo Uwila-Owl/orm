@@ -19,6 +19,7 @@ public class Ventilation extends JDialog {
     private String userId; // L'ID de l'utilisateur connecté
     private EntiteDAO entiteDAO = new EntiteDAO(); // Ajouter cette ligne
     private RelationDAO relationDAO = new RelationDAO(); // Ajouter cette ligne
+    private LogDAO logDAO = new LogDAO(); // Pour la journalisation
 
     // Couleurs et polices harmonisées
     private final Color bgColor = Color.decode("#D6E3F3");
@@ -98,13 +99,13 @@ public class Ventilation extends JDialog {
                 if (rs.next()) {
                     int schemaId = rs.getInt("schema_id");
                     JOptionPane.showMessageDialog(this, "Schéma '" + nomSchema + "' créé avec succès ! ID: " + schemaId);
-                    LOGGER.info("Nouveau schéma créé par " + userId + ": " + nomSchema + " (ID: " + schemaId + ")");
+                    logDAO.insertLog(this.userId, "Nouveau schéma créé par " + userId + ": " + nomSchema + " (ID: " + schemaId + ")", "INFO");
                     lancerGenerateurUML(schemaId, nomSchema.trim());
                 } else {
                     JOptionPane.showMessageDialog(this, "Erreur lors de la création du schéma.", "Erreur", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (SQLException ex) {
-                LOGGER.log(Level.SEVERE, "Erreur SQL lors de la création du schéma: " + ex.getMessage(), ex);
+                logDAO.insertLog(userId, "Erreur SQL lors de la création du schéma: " + ex.getMessage(), "SEVERE");
                 JOptionPane.showMessageDialog(this, "Erreur base de données: " + ex.getMessage(), "Erreur", JOptionPane.ERROR_MESSAGE);
             }
         } else if (nomSchema != null) { // Si l'utilisateur a cliqué sur OK mais n'a rien entré
@@ -203,12 +204,6 @@ public class Ventilation extends JDialog {
 
                         // 3. Supprimer les attributs de chaque entité
                         for (Integer entiteId : entiteIds) {
-                            // La méthode supprimerAttributsEntite est dans AttributDAO,
-                            // mais EntiteDAO a une instance de AttributDAO.
-                            // Pour éviter de recréer AttributDAO ici, on peut soit :
-                            // a) Passer la connexion à AttributDAO.supprimerAttributsEntite
-                            // b) Faire une méthode dans EntiteDAO qui gère la suppression des attributs par schema_id
-                            // Pour la simplicité et l'efficacité de la transaction, on va faire une suppression directe ici.
                             try (PreparedStatement pstmtAttributs = conn.prepareStatement("DELETE FROM attributs WHERE entite_id = ?")) {
                                 pstmtAttributs.setInt(1, entiteId);
                                 pstmtAttributs.executeUpdate();
@@ -229,7 +224,7 @@ public class Ventilation extends JDialog {
                             if (affectedRows > 0) {
                                 conn.commit(); // Valider la transaction
                                 JOptionPane.showMessageDialog(this, "Schéma '" + nomSchema + "' supprimé avec succès !");
-                                LOGGER.info("Schéma supprimé par " + userId + ": " + nomSchema + " (ID: " + schemaId + ")");
+                                logDAO.insertLog(userId, "Schéma supprimé par " + userId + ": " + nomSchema + " (ID: " + schemaId + ")", "INFO");
                             } else {
                                 conn.rollback(); // Annuler la transaction
                                 JOptionPane.showMessageDialog(this, "Erreur lors de la suppression du schéma.", "Erreur", JOptionPane.ERROR_MESSAGE);
@@ -242,19 +237,13 @@ public class Ventilation extends JDialog {
                         conn.setAutoCommit(true); // Rétablir l'auto-commit
                     }
                 } catch (SQLException ex) {
-                    LOGGER.log(Level.SEVERE, "Erreur SQL lors de la suppression du schéma: " + ex.getMessage(), ex);
+                    logDAO.insertLog(userId, "Erreur SQL lors de la suppression du schéma: " + ex.getMessage(), "SEVERE");
                     JOptionPane.showMessageDialog(this, "Erreur base de données: " + ex.getMessage(), "Erreur", JOptionPane.ERROR_MESSAGE);
                 }
             }
         }
     }
 
-    /**
-     * Récupère la liste des schémas pour un utilisateur donné.
-     *
-     * @param userId L'ID de l'utilisateur.
-     * @return Une liste de Map, chaque Map représentant un schéma.
-     */
     private List<Map<String, Object>> getSchemasForUser(String userId) {
         List<Map<String, Object>> schemas = new ArrayList<>();
         try (Connection conn = connexionBdd.getConnection(); PreparedStatement pstmt = conn.prepareStatement("SELECT schema_id, nom_schema, commentaires FROM ventilation WHERE user_id = ? ORDER BY nom_schema")) {
@@ -268,18 +257,12 @@ public class Ventilation extends JDialog {
                 schemas.add(schema);
             }
         } catch (SQLException ex) {
-            LOGGER.log(Level.SEVERE, "Erreur SQL lors de la récupération des schémas: " + ex.getMessage(), ex);
+            logDAO.insertLog(userId, "Erreur SQL lors de la récupération des schémas: " + ex.getMessage(), "SEVERE");
             JOptionPane.showMessageDialog(this, "Erreur lors du chargement des schémas: " + ex.getMessage(), "Erreur", JOptionPane.ERROR_MESSAGE);
         }
         return schemas;
     }
 
-    /**
-     * Lance l'interface du générateur UML/ERD.
-     *
-     * @param schemaId L'ID du schéma à charger/créer.
-     * @param nomSchema Le nom du schéma.
-     */
     private void lancerGenerateurUML(int schemaId, String nomSchema) {
         dispose(); // Ferme la fenêtre de ventilation
         Platform.runLater(() -> {
@@ -288,7 +271,7 @@ public class Ventilation extends JDialog {
                 javafx.stage.Stage stage = new javafx.stage.Stage();
                 app.start(stage);
             } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE, "Erreur lors du lancement de InterfaceGenerateurUML : " + ex.getMessage(), ex);
+                logDAO.insertLog(userId, "Erreur lors du lancement de InterfaceGenerateurUML : " + ex.getMessage(), "SEVERE");
                 JOptionPane.showMessageDialog(null, "Erreur lors du lancement de l'application : " + ex.getMessage());
             }
         });

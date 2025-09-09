@@ -1,3 +1,4 @@
+
 import javafx.scene.control.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -6,8 +7,12 @@ import java.io.File;
 
 public class NavigationMenu {
 
+    private static LogDAO logDAO = new LogDAO();
+
     public static MenuBar createMenuBar(Stage primaryStage) {
         MenuBar menuBar = new MenuBar();
+
+        String userId = UserSession.getInstance().getUserId();
 
         // ---- Fichier ----
         Menu fileMenu = new Menu("Fichier");
@@ -59,7 +64,7 @@ public class NavigationMenu {
                     new FileChooser.ExtensionFilter("Tous les fichiers", "*.*"));
             File selectedFile = fileChooser.showSaveDialog(primaryStage);
             if (selectedFile != null) {
-                System.out.println("Fichier enregistré : " + selectedFile.getAbsolutePath());
+                logDAO.insertLog(userId, "Fichier enregistré : " + selectedFile.getAbsolutePath(), "INFO");
             }
         });
 

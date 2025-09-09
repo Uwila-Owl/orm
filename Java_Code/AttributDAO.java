@@ -1,3 +1,4 @@
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -7,7 +8,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class AttributDAO {
+
     private static final Logger LOGGER = Logger.getLogger(AttributDAO.class.getName());
+    private LogDAO logDAO = new LogDAO();
+    String userId = UserSession.getInstance().getUserId();
 
     /**
      * Insère un nouvel attribut dans la table 'attributs'.
@@ -15,8 +19,7 @@ public class AttributDAO {
     public void insertAttribut(String nom, boolean clePrimaire, boolean cleEtrangere, int entiteId, String typeSchema) {
         String SQL = "INSERT INTO attributs(nom, cle_primaire, cle_etrangere, entite_id, type_schema) VALUES(?, ?, ?, ?, ?)";
 
-        try (Connection conn = ConnexionBdd.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(SQL)) {
+        try (Connection conn = ConnexionBdd.getConnection(); PreparedStatement pstmt = conn.prepareStatement(SQL)) {
 
             pstmt.setString(1, nom);
             pstmt.setBoolean(2, clePrimaire);
@@ -27,10 +30,10 @@ public class AttributDAO {
             int affectedRows = pstmt.executeUpdate();
 
             if (affectedRows > 0) {
-                LOGGER.info("Insertion réussie dans la table 'attributs'.");
+                logDAO.insertLog(userId, "Insertion réussie dans la table 'attributs'.", "INFO");
             }
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors de l'insertion dans la table 'attributs' : " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors de l'insertion dans la table 'attributs' : " + e.getMessage(), "SEVERE");
         }
     }
 
@@ -42,24 +45,24 @@ public class AttributDAO {
     public void supprimerAttributsEntite(int entiteId) {
         String SQL = "DELETE FROM attributs WHERE entite_id = ?";
 
-        try (Connection conn = ConnexionBdd.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(SQL)) {
+        try (Connection conn = ConnexionBdd.getConnection(); PreparedStatement pstmt = conn.prepareStatement(SQL)) {
 
             pstmt.setInt(1, entiteId);
             int affectedRows = pstmt.executeUpdate();
 
             if (affectedRows > 0) {
-                LOGGER.info("Suppression réussie de " + affectedRows + " attribut(s) pour l'entité ID : " + entiteId);
+                logDAO.insertLog(userId, "Suppression réussie de " + affectedRows + " attribut(s) pour l'entité ID : " + entiteId, "INFO");
             } else {
-                LOGGER.info("Aucun attribut trouvé pour l'entité ID : " + entiteId);
+                logDAO.insertLog(userId, "Aucun attribut trouvé pour l'entité ID : " + entiteId, "INFO");
             }
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors de la suppression des attributs : " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors de la suppression des attributs : " + e.getMessage(), "SEVERE");
         }
     }
 
     /**
-     * Met à jour tous les attributs d'une entité en supprimant les anciens et insérant les nouveaux.
+     * Met à jour tous les attributs d'une entité en supprimant les anciens et
+     * insérant les nouveaux.
      */
     public void updateAttributsForEntite(int entiteId, List<Map<String, Object>> attributs, String typeSchema) {
         try (Connection conn = ConnexionBdd.getConnection()) {
@@ -84,7 +87,7 @@ public class AttributDAO {
                 }
 
                 conn.commit(); // Valider la transaction
-                LOGGER.info("Mise à jour réussie des attributs pour l'entité ID : " + entiteId);
+                logDAO.insertLog(userId, "Mise à jour réussie des attributs pour l'entité ID : " + entiteId, "INFO");
 
             } catch (SQLException e) {
                 conn.rollback(); // Annuler en cas d'erreur
@@ -94,7 +97,7 @@ public class AttributDAO {
             }
 
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors de la mise à jour des attributs : " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors de la mise à jour des attributs : " + e.getMessage(), "SEVERE");
         }
     }
 

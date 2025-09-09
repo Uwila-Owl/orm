@@ -45,6 +45,8 @@ public class ZoneModelisation extends Pane {
     private AttributDAO attributDAO;
     private Visuel visuel;
     private List<RelationERD> relationsERD = new ArrayList<>();
+    private LogDAO logDAO = new LogDAO();
+    String userId = UserSession.getInstance().getUserId();
 
     public interface SelectionListener {
 
@@ -166,7 +168,7 @@ public class ZoneModelisation extends Pane {
             int entiteId = entiteDAO.insertEntite(nom, positionX, positionY, typeSchema, loadedSchemaId); // Ajout de loadedSchemaId
             if (entiteId != -1) {
                 entite.put("id", entiteId);
-                LOGGER.info("Nouvelle entité insérée avec ID : " + entiteId);
+                logDAO.insertLog(userId, "Nouvelle entité insérée avec ID : " + entiteId, "INFO");
 
                 List<Map<String, Object>> attributs = (List<Map<String, Object>>) entite.get("attributs");
                 if (attributs != null) {
@@ -181,7 +183,7 @@ public class ZoneModelisation extends Pane {
                     }
                 }
             } else {
-                LOGGER.log(Level.SEVERE, "Impossible d'insérer l'entité dans la base de données.");
+                logDAO.insertLog(userId, "Impossible d'insérer l'entité dans la base de données.", "SEVERE");
                 return;
             }
         }
@@ -230,7 +232,7 @@ public class ZoneModelisation extends Pane {
                 entitiesFromDb.add(entite);
             }
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Erreur lors du chargement des entités : " + e.getMessage(), e);
+            logDAO.insertLog(userId, "Erreur lors du chargement des entités : " + e.getMessage(), "SEVERE");
         }
 
         for (Map<String, Object> entity : entitiesFromDb) {
@@ -529,7 +531,7 @@ public class ZoneModelisation extends Pane {
         // Intercepter la touche S pour toggle snap
         if (event.getCode() == KeyCode.S) {
             snapActive = !snapActive;
-            System.out.println("Snap magnétique " + (snapActive ? "activé" : "désactivé"));
+            logDAO.insertLog(userId, "Snap magnétique " + (snapActive ? "activé" : "désactivé"), "INFO");
             event.consume(); // optionnel : empêche propagation si besoin
             return; // on ne transmet pas à visuel car c’est une touche spécifique ici
         }
@@ -609,58 +611,6 @@ public class ZoneModelisation extends Pane {
                     relationGroup.setLayoutX(midX - groupWidth / 2);
                     relationGroup.setLayoutY(midY - groupHeight / 2);
                 }
-
-                /*
-                // Positionner les cardinalités près des bords des entités
-                // Cardinalité source (près de l'entité e1)
-                double offsetX1 = (point2[0] - point1[0]) * 0.1; // 10% de la ligne depuis e1
-                double offsetY1 = (point2[1] - point1[1]) * 0.1;
-
-                // Cardinalité cible (près de l'entité e2)
-                double offsetX2 = (point1[0] - point2[0]) * 0.1; // 10% de la ligne depuis e2
-                double offsetY2 = (point1[1] - point2[1]) * 0.1;
-
-                // Détermination de l'orientation de la ligne
-                double dx = point2[0] - point1[0];
-                double dy = point2[1] - point1[1];
-                double adx = Math.abs(dx);
-                double ady = Math.abs(dy);
-
-                if (adx > ady * 2) {
-                    // Cas ligne principalement horizontale
-                    cardinaliteSourceText.setX(point1[0] + offsetX1);
-                    cardinaliteSourceText.setY(point1[1] + 15);  // au-dessus
-
-                    cardinaliteCibleText.setX(point2[0] + offsetX2);
-                    cardinaliteCibleText.setY(point2[1] + 55);  // en-dessous
-
-                } else if (ady > adx * 2) {
-                    // Cas ligne principalement verticale
-                    cardinaliteSourceText.setX(point1[0] + 5);  // à droite
-                    cardinaliteSourceText.setY(point1[1] + offsetY1);
-
-                    cardinaliteCibleText.setX(point2[0] - cardinaliteCibleText.getLayoutBounds().getWidth() - 5); // à gauche
-                    cardinaliteCibleText.setY(point2[1] + offsetY2);
-
-                } else {
-                    // Cas ligne diagonale
-                    double norm = Math.sqrt(dx * dx + dy * dy);
-                    double ux = dx / norm;
-                    double uy = dy / norm;
-
-                    // vecteur perpendiculaire pour décaler la cardinalité
-                    double px = -uy;
-                    double py = ux;
-
-                    // Source
-                    cardinaliteSourceText.setX(point1[0] + offsetX1 + px * 15);
-                    cardinaliteSourceText.setY(point1[1] + offsetY1 + py * 15);
-
-                    // Cible
-                    cardinaliteCibleText.setX(point2[0] + offsetX2 + px * 15 - cardinaliteCibleText.getLayoutBounds().getWidth() / 2);
-                    cardinaliteCibleText.setY(point2[1] + offsetY2 + py * 15);
-                }
-                 */
             }
         }
 
