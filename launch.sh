@@ -9,7 +9,7 @@ echo "=== Lancement de GenerateurUML ==="
 JAVAFX_LIB_DIR="./JavaFX_Lib/Lnx/lib"
 EXT_DRIVER_DIR="./Ext_Driver"
 JAR_NAME="GenerateurUML.jar"
-MAIN_CLASS="InterfaceGenerateurUML"
+MAIN_CLASS="FenetreLogin"
 
 # Vérification de l'existence du JAR principal
 if [ ! -f "$JAR_NAME" ]; then
