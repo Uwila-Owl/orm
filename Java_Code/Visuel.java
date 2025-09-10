@@ -32,6 +32,7 @@ public class Visuel {
         double positionX = (double) entite.get("position_x");
         double positionY = (double) entite.get("position_y");
         List<Map<String, Object>> attributs = (List<Map<String, Object>>) entite.get("attributs");
+        List<Map<String, Object>> operations = (List<Map<String, Object>>) entite.get("operations");
 
         // Dimensions
         int largeur = 160;
@@ -62,10 +63,11 @@ public class Visuel {
         Line separateur = new Line(5, hauteurNom, largeur - 5, hauteurNom);
         separateur.setStroke(Color.BLACK);
 
+        entiteVisuelle.getChildren().clear();
         entiteVisuelle.getChildren().addAll(rect, nomText, separateur);
 
         // Ajout des attributs
-        int yAttrib = hauteurNom + 20;
+        int y = hauteurNom + 20;
         if (attributs != null) {
             // Trier pour que clés primaires en premier
             attributs.sort(Comparator.comparing(attrib -> !(boolean) attrib.get("cle_primaire")));
@@ -85,7 +87,7 @@ public class Visuel {
 
                 Text attrText = new Text(prefix + attrNom);
                 attrText.setX(10);
-                attrText.setY(yAttrib);
+                attrText.setY(y);
                 attrText.setFill(Color.BLACK);
 
                 // Style : gras si clé primaire, italique si clé étrangère
@@ -94,10 +96,39 @@ public class Visuel {
                 attrText.setFont(Font.font("Arial", fw, fp, 12));
 
                 entiteVisuelle.getChildren().add(attrText);
-                yAttrib += 18;
+                y += 18;
             }
         }
+        
+        //--Ajout Lyna
 
+// --- Ajout des opérations (SEULEMENT pour UML) ---
+    if ("UML".equals(typeSchema) && operations != null && !operations.isEmpty()) {
+        // Ligne séparatrice entre attributs et opérations
+        Line sepOps = new Line(5, y - 10, largeur - 5, y - 10);
+        sepOps.setStroke(Color.BLACK);
+        entiteVisuelle.getChildren().add(sepOps);
+
+        y += 5; // petit espace avant la première opération
+
+        for (Map<String, Object> op : operations) {
+            String opNom = (String) op.get("nom");
+            Text opText = new Text("+ " + opNom + "() "); // ajout du "+" et "()"
+            opText.setX(10);
+            opText.setY(y);
+            opText.setFill(Color.DARKBLUE);
+            opText.setFont(Font.font("Arial", FontPosture.ITALIC, 12));
+
+            entiteVisuelle.getChildren().add(opText);
+            y += 18;
+        }
+    }
+
+    // Ajuster la hauteur du rectangle
+    rect.setHeight(y + 5);
+    
+    //--
+    
         // Positionnement du groupe
         entiteVisuelle.setLayoutX(positionX);
         entiteVisuelle.setLayoutY(positionY);
