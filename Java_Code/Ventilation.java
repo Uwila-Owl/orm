@@ -82,6 +82,32 @@ public class Ventilation extends JDialog {
     private void creerNouveauSchema(ActionEvent e) {
         String nomSchema = JOptionPane.showInputDialog(this, "Nom du nouveau schéma :", "Nouveau Schéma", JOptionPane.PLAIN_MESSAGE);
         if (nomSchema != null && !nomSchema.trim().isEmpty()) {
+
+            int currentSchemaCount = 0;
+            try (Connection conn = connexionBdd.getConnection();
+                PreparedStatement pstmt = conn.prepareStatement("SELECT COUNT(*) FROM ventilation WHERE user_id = ?")) {
+                pstmt.setString(1, userId);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (rs.next()) {
+                        currentSchemaCount = rs.getInt(1);
+                    }
+                }
+            } catch (SQLException ex) {
+                logDAO.insertLog(userId, "Erreur SQL lors de la vérification du nombre de schémas: " + ex.getMessage(), "SEVERE");
+                JOptionPane.showMessageDialog(this, "Erreur base de données lors de la vérification du nombre de schémas.", "Erreur", JOptionPane.ERROR_MESSAGE);
+                return; // Arrête le processus si la vérification échoue
+            }
+
+            final int MAX_SCHEMAS_PER_USER = 50; // Définir la limite de schéma ici
+
+            if (currentSchemaCount >= MAX_SCHEMAS_PER_USER) {
+                JOptionPane.showMessageDialog(this,
+                    "Vous avez atteint la limite de " + MAX_SCHEMAS_PER_USER + " schémas. Veuillez supprimer des schémas existants pour en créer de nouveaux.",
+                    "Limite de schémas atteinte", JOptionPane.WARNING_MESSAGE);
+                logDAO.insertLog(userId, "Tentative de création de schéma échouée : limite de " + MAX_SCHEMAS_PER_USER + " schémas atteinte pour l'utilisateur " + userId, "WARNING");
+                return; // Arrête le processus si la limite est atteinte
+            }
+
             String commentaires = JOptionPane.showInputDialog(this, "Commentaires (optionnel) :", "Nouveau Schéma", JOptionPane.PLAIN_MESSAGE);
             if (commentaires == null) {
                 commentaires = ""; // Gérer le cas où l'utilisateur annule les commentaires
