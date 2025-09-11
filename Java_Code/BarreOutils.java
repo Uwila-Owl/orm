@@ -26,6 +26,8 @@ public class BarreOutils extends VBox {
     private VBox unitsList;
     private VBox vboxLien;
     private VBox operationContainer;
+    private TextField tfNomRelation;
+
     private LogDAO logDAO = new LogDAO();
     String userId = UserSession.getInstance().getUserId();
 
@@ -145,6 +147,12 @@ private ComboBox<String> cbCardinaliteCible;
        cbCardinaliteCible = new ComboBox<>();
         cbCardinaliteCible.getItems().addAll("1,1", "0,1", "0,N", "1,N");
         cbCardinaliteCible.setPromptText("Cardinalité");
+        
+        // --- Nom de relation (seulement en ERD) ---
+tfNomRelation = new TextField();
+tfNomRelation.setPromptText("Nom de la relation");
+tfNomRelation.setMaxWidth(150);
+
 
         btnCreerLien = new Button("Créer Lien");
         btnCreerLien.setOnAction(e -> {
@@ -174,13 +182,15 @@ private ComboBox<String> cbCardinaliteCible;
     if (!zoneModelisation.isUML()) {
         String cardSource = cbCardinaliteSource.getValue();
         String cardCible = cbCardinaliteCible.getValue();
+        String relationNom = tfNomRelation.getText().trim();
 
-        if (cardSource == null || cardCible == null) {
-            showAlert("Sélection invalide", "Veuillez sélectionner les cardinalités.");
+
+        if (cardSource == null || cardCible == null|| relationNom.isEmpty()) {
+            showAlert("Sélection invalide", "Veuillez saisir le nom de la relation et sélectionner les cardinalités.");
             return;
         }
 
-        zoneModelisation.creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, cardSource, cardCible);
+        zoneModelisation.creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, cardSource, cardCible, relationNom);
     } else {
         zoneModelisation.creerLienEntreEntites(source, cible, typeLien);
     }
@@ -195,7 +205,7 @@ private ComboBox<String> cbCardinaliteCible;
         hboxCible.setAlignment(Pos.CENTER_LEFT);
 
 // VBox lien
-        VBox vboxLien = new VBox(10, lblLien, hboxSource, hboxCible, btnCreerLien);
+        VBox vboxLien = new VBox(10, lblLien, hboxSource,  hboxCible, tfNomRelation, btnCreerLien);
         vboxLien.setPadding(new Insets(10, 0, 0, 0));
         vboxLien.setAlignment(Pos.TOP_CENTER);
 
@@ -437,6 +447,12 @@ private ComboBox<String> cbCardinaliteCible;
         operationContainer.setVisible(isUMLSelected);
         operationContainer.setManaged(isUMLSelected);
         operationContainer.setManaged(isUMLSelected);
+        
+        if (tfNomRelation != null) {
+    tfNomRelation.setVisible(isERDSelected);
+    tfNomRelation.setManaged(isERDSelected);
+}
+
         
         // --- Gestion spécifique des cardinalités ---
         if (cbCardinaliteSource != null && cbCardinaliteCible != null) {
