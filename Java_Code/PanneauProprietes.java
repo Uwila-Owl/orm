@@ -27,6 +27,12 @@ public class PanneauProprietes extends VBox {
     private Button btnCreerLien;
     private Button btnAjoutAttr;
     private RadioButton rbPK, rbFK;
+    // --- Zone Info Bloc ---
+private Label lblNomBloc;
+private Label lblPK;
+private Label lblFK;
+private Label lblRelation;
+
     String userId = UserSession.getInstance().getUserId();
 
     public PanneauProprietes(ZoneModelisation zone) {
@@ -43,6 +49,23 @@ public class PanneauProprietes extends VBox {
                 zone.mettreAJourEntite(entiteCourante);
             }
         });
+        
+        // --- Zone Info Bloc ---
+Label titreInfo = new Label("Info bloc");
+titreInfo.setStyle("-fx-font-weight: bold; -fx-background-color: #e6e6e6; -fx-padding: 5; -fx-font-size: 12px;");
+
+lblNomBloc = new Label("Nom du bloc : ");
+lblPK = new Label("Clé primaire : ");
+lblFK = new Label("Clé étrangère : ");
+lblRelation = new Label("Relation : ");
+
+VBox infoBloc = new VBox(5, titreInfo, lblNomBloc, lblPK, lblFK, lblRelation);
+infoBloc.setPadding(new Insets(10));
+infoBloc.setStyle("-fx-background-color: #f4f4f4; -fx-border-color: #ccc; -fx-border-radius: 5;");
+
+// Ajouter la zone Info bloc en haut du panneau
+this.getChildren().add(infoBloc);
+
 
         // Label + champ Nom relation
         Label lblNomRelation = new Label("Nom relation :");
@@ -141,6 +164,33 @@ public class PanneauProprietes extends VBox {
 
     public void remplirPanneau(Map<String, Object> entite) {
         this.entiteCourante = entite;
+        
+        // --- Mise à jour Info bloc ---
+lblNomBloc.setText("Nom du bloc : " + (String) entite.get("nom"));
+
+// Chercher les PK et FK dans les attributs
+List<Map<String, Object>> attributs = (List<Map<String, Object>>) entite.get("attributs");
+String pk = "";
+String fk = "";
+if (attributs != null) {
+    for (Map<String, Object> attr : attributs) {
+        if ((boolean) attr.getOrDefault("cle_primaire", false)) {
+            pk = (String) attr.get("nom");
+        }
+        if ((boolean) attr.getOrDefault("cle_etrangere", false)) {
+            fk = (String) attr.get("nom");
+        }
+    }
+}
+lblPK.setText("Clé primaire : " + (pk.isEmpty() ? "Aucune" : pk));
+lblFK.setText("Clé étrangère : " + (fk.isEmpty() ? "Aucune" : fk));
+
+
+// Nom relation
+String relationNom = (String) entite.getOrDefault("nom_relation", "");
+lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relationNom));
+
+
         tfNom.setText((String) entite.get("nom"));
 
         // Remplir Nom relation
@@ -163,7 +213,7 @@ public class PanneauProprietes extends VBox {
             }
         }
 
-        List<Map<String, Object>> attributs = (List<Map<String, Object>>) entite.get("attributs");
+        attrBox.getChildren().clear();
         if (attributs != null) {
             for (Map<String, Object> attr : attributs) {
                 String prefix = "";
