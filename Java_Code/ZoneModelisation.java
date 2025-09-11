@@ -271,20 +271,25 @@ public class ZoneModelisation extends Pane {
                 String typeLien = rel.get("type_schema").equals("UML") ? "Héritage" : "Relation";
                 String cardSource = (String) rel.getOrDefault("cardinalite_source", "[ ]");
                 String cardCible = (String) rel.getOrDefault("cardinalite_cible", "[ ]");
-
+                
+String relationNom = (String) rel.getOrDefault("nom_relation", "Relation");
                 if (!relationExiste(source, cible, typeLien)) {
-                    creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, cardSource, cardCible);
+                    creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, cardSource, cardCible, relationNom);
                 }
             }
         }
     }
 
     public void creerLienEntreEntitesAvecCardinalites(Map<String, Object> source, Map<String, Object> cible, String typeLien,
-            String cardSource, String cardCible) {
+            String cardSource, String cardCible, String relationNom) {
         if (source == null || cible == null || source.equals(cible)) {
             return;
         }
-
+        //--Ajout Lyna
+        if (relationNom == null || relationNom.isEmpty()) {
+    relationNom = "Relation";
+}
+//--
         Group g1 = entiteToGroup.get((Integer) source.get("id"));
         Group g2 = entiteToGroup.get((Integer) cible.get("id"));
         if (g1 == null || g2 == null) {
@@ -305,7 +310,7 @@ public class ZoneModelisation extends Pane {
 
             // ====== Cas ERD ======
         } else {
-            String relationNom = (String) source.getOrDefault("nom_relation", "Relation");
+            
 
             // Créer la nouvelle relation ERD
             RelationERD relationERD = new RelationERD(
@@ -324,6 +329,9 @@ public class ZoneModelisation extends Pane {
                     relationERD.getCardinaliteSourceText(),
                     relationERD.getCardinaliteCibleText()
             );
+            
+            
+
 
             // Stocker le texte relation pour mise à jour depuis panneau
             source.put("relation_text", relationERD.getRelationGroup().getChildren().get(1)); // Le Text est le 2ème enfant
@@ -334,8 +342,14 @@ public class ZoneModelisation extends Pane {
      * Crée un lien entre deux entités avec des cardinalités par défaut [ ].
      */
     public void creerLienEntreEntites(Map<String, Object> source, Map<String, Object> cible, String typeLien) {
-        creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, "[ ]", "[ ]");
+    String relationNom = "Relation";
+        creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, "[ ]", "[ ]", relationNom);
+       
     }
+    
+
+
+
 
     private void ajouterEntiteUML(Map<String, Object> entite) {
         Group entiteVisuelle = new Group();
