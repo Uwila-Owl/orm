@@ -26,15 +26,15 @@ public class Contact extends JDialog {
         ));
         WEBHOOK_CONFIG.put("Incident avec la Menu de navigation", new WebhookInfo(
                 "https://discord.com/api/webhooks/1416484119243915314/JoZ8yeybwdPREIprtB69H_2GvRxD50Hxf6vwmT0w5QfmjFV6hIr5WCt914a6Z_75GsQU",
-                "<@VOTRE_ID_UTILISATEUR_DISCORD>"
+                "<@1049405425860218921>"
         ));
         WEBHOOK_CONFIG.put("Incident avec la Barre d'outils", new WebhookInfo(
                 "https://discord.com/api/webhooks/1416483699905789973/AINp_5DUUpxd73Yu32csWTM472XsO0HHymJy3AJGpeD-aHeH2OMgw7QmIn11p0hmajiw",
-                "<@VOTRE_ID_UTILISATEUR_DISCORD>"
+                "<@824979914775592962>"
         ));
         WEBHOOK_CONFIG.put("Incident avec le Panneau de propriétés", new WebhookInfo(
                 "https://discord.com/api/webhooks/1416483917304823900/mTmt6skDycnZdJMv3FwIQt_pCQSauEi6PDQn5CpB3RMUEhOWc5zV-74pNW9s3kYwE-_g",
-                "<@VOTRE_ID_UTILISATEUR_DISCORD>"
+                "<@824979914775592962>"
         ));
         WEBHOOK_CONFIG.put("Problème de Connexion à la BDD", new WebhookInfo(
                 "https://discord.com/api/webhooks/1416484014369538149/HpDl0KcTAPUrhKtpASJ8YiDcNNcNk4SpJ6CodL3GwaypcPsx21DqfKPc3rZdo5ZHbJFo",
