@@ -76,11 +76,19 @@ public class InterfaceGenerateurUML extends Application {
         VBox top = new VBox(menuContainer, onglets);
 
         ZoneModelisation zoneModelisation = new ZoneModelisation(currentSchemaId);
+        zoneModelisation.setPrefSize(Double.MAX_VALUE, Double.MAX_VALUE);
         this.ZoneModelisation = zoneModelisation;
         zoneModelisation.setStyle("-fx-padding: 50; -fx-border-color: gray;");
-        StackPane centerPane = new StackPane(zoneModelisation);
+
+// Encapsuler la ZoneModelisation dans un ScrollPane
+        ScrollPane scrollPane = new ScrollPane(zoneModelisation);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(true);
+        scrollPane.setPannable(true);
+
+        StackPane centerPane = new StackPane(scrollPane);
         centerPane.setStyle("-fx-background-color: white;");
-        centerPane.setPrefSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        centerPane.setPrefSize(800, 600);
 
         leftBar = (BarreOutils) createBarreOutils();
         leftBar.setMinWidth(250);
@@ -91,17 +99,6 @@ public class InterfaceGenerateurUML extends Application {
         rightPanel.setPrefWidth(290);
 
         zoneModelisation.setSelectionListener(entite -> rightPanel.remplirPanneau(entite));
-
-        group.selectedToggleProperty().addListener((observable, oldValue, newValue) -> {
-            if (newValue != null && oldValue != null) {
-                boolean oldIsUML = (oldValue == btnUML);
-                boolean newIsUML = (newValue == btnUML);
-
-                if (oldIsUML != newIsUML) {
-                    promptWarnAndSwitch(oldIsUML, newIsUML);
-                }
-            }
-        });
 
         HBox statusBar = new HBox(20);
         statusBar.setPadding(new Insets(5));
@@ -121,9 +118,9 @@ public class InterfaceGenerateurUML extends Application {
         Scene scene = new Scene(root, 1200, 700);
         primaryStage.setTitle("Générateur UML/ERD/Code");
         primaryStage.setScene(scene);
-
         primaryStage.setMaximized(true);
         primaryStage.setFullScreenExitHint("");
+        primaryStage.show();
 
         // Configuration de la vérification de session
         setupSessionCheck();

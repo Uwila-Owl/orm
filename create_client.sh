@@ -38,10 +38,10 @@ echo -e "   ${GREEN}✓${NC} JAR principal: $JAR_FILE trouvé"
 # Vérification du script Start.sh source
 if [ ! -d "$SCRIPT_EU_DIR" ]; then
     echo -e "${RED}❌ Erreur: Le script sourc $SCRIPT_EU_DIRE n'existe pas!${NC}"
-    echo "Veuillez créer le dossier Script_EU avec le fichier Start.sh"
+    echo "Veuillez créer le dossier Script_EU avec les fichiers de démarage"
     exit 1
 fi
-echo -e "   ${GREEN}✓${NC} Script Start.sh source: $SCRIPT_EU_DIR trouvé"
+echo -e "   ${GREEN}✓${NC} Script démarage source: $SCRIPT_EU_DIR trouvé"
 
 # Vérification des bibliothèques JavaFX
 if [ ! -d "$JAVAFX_LIB_DIR" ]; then
@@ -114,8 +114,8 @@ else
     exit 1
 fi
 
-echo "Appuyer sur Entrée pour continuer..."
-read a
+# echo "Appuyer sur Entrée pour continuer..."
+# read a
 
 # Création de l'archive
 echo
@@ -141,12 +141,14 @@ echo -e "   📋 Contenu:"
 echo -e "      • GenerateurUML.jar"
 echo -e "      • JavaFX_Lib/ ($JAVAFX_COUNT fichiers)"
 echo -e "      • Ext_Driver/ ($DRIVER_COUNT fichiers)"
-echo -e "      • Start.sh (menu interactif)"
+echo -e "      • Start.sh (menu interactif Linux)"
+echo -e "      • Start.bat (menu interactif MS.Windows)"
+
 echo
 echo -e "${YELLOW}📖 Instructions pour l'utilisateur final:${NC}"
 echo "   1. Extraire l'archive UMLGen_Client.tar.gz"
 echo "   2. Aller dans le dossier UMLGen/"
-echo "   3. Exécuter: ./Start.sh"
+echo "   3. Exécuter: ./Start.sh sous linux ou Start.bat sous Windows"
 echo
 echo "=== Génération terminée ==="
 

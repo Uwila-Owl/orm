@@ -99,36 +99,34 @@ public class Visuel {
                 y += 18;
             }
         }
-        
+
         //--Ajout Lyna
-
 // --- Ajout des opérations (SEULEMENT pour UML) ---
-    if ("UML".equals(typeSchema) && operations != null && !operations.isEmpty()) {
-        // Ligne séparatrice entre attributs et opérations
-        Line sepOps = new Line(5, y - 10, largeur - 5, y - 10);
-        sepOps.setStroke(Color.BLACK);
-        entiteVisuelle.getChildren().add(sepOps);
+        if ("UML".equals(typeSchema) && operations != null && !operations.isEmpty()) {
+            // Ligne séparatrice entre attributs et opérations
+            Line sepOps = new Line(5, y - 10, largeur - 5, y - 10);
+            sepOps.setStroke(Color.BLACK);
+            entiteVisuelle.getChildren().add(sepOps);
 
-        y += 5; // petit espace avant la première opération
+            y += 5; // petit espace avant la première opération
 
-        for (Map<String, Object> op : operations) {
-            String opNom = (String) op.get("nom");
-            Text opText = new Text("+ " + opNom + "() "); // ajout du "+" et "()"
-            opText.setX(10);
-            opText.setY(y);
-            opText.setFill(Color.DARKBLUE);
-            opText.setFont(Font.font("Arial", FontPosture.ITALIC, 12));
+            for (Map<String, Object> op : operations) {
+                String opNom = (String) op.get("nom");
+                Text opText = new Text("+ " + opNom + "() "); // ajout du "+" et "()"
+                opText.setX(10);
+                opText.setY(y);
+                opText.setFill(Color.DARKBLUE);
+                opText.setFont(Font.font("Arial", FontPosture.ITALIC, 12));
 
-            entiteVisuelle.getChildren().add(opText);
-            y += 18;
+                entiteVisuelle.getChildren().add(opText);
+                y += 18;
+            }
         }
-    }
 
-    // Ajuster la hauteur du rectangle
-    rect.setHeight(y + 5);
-    
-    //--
-    
+        // Ajuster la hauteur du rectangle
+        rect.setHeight(y + 5);
+
+        //--
         // Positionnement du groupe
         entiteVisuelle.setLayoutX(positionX);
         entiteVisuelle.setLayoutY(positionY);
@@ -156,8 +154,17 @@ public class Visuel {
     }
 
     private void applyZoom(Node node) {
-        node.setScaleX(zoomFactor);
-        node.setScaleY(zoomFactor);
+        // Le 'node' passé ici est la ZoneModelisation.
+        // Nous devons accéder à son contentGroup pour appliquer le zoom.
+        if (node instanceof ZoneModelisation) {
+            Group contentGroup = ((ZoneModelisation) node).getContentGroup();
+            contentGroup.setScaleX(zoomFactor);
+            contentGroup.setScaleY(zoomFactor);
+        } else {
+            // Fallback ou log d'erreur si le type de nœud n'est pas celui attendu
+            node.setScaleX(zoomFactor);
+            node.setScaleY(zoomFactor);
+        }
     }
 
     public void toucheClavAppui(KeyEvent event) {

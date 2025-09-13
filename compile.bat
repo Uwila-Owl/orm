@@ -69,6 +69,3 @@ if %errorlevel%==0 (
     exit /b 1
 )
 
-endlocal
-
-pause

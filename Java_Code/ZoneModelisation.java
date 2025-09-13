@@ -37,6 +37,7 @@ public class ZoneModelisation extends Pane {
     private SelectionListener selectionListener;
     private static final Logger LOGGER = Logger.getLogger(ZoneModelisation.class.getName());
     private Canvas gridCanvas;
+    private Group contentGroup;
     private Group positionCurseurGroup;
     private Text positionCurseurText;
     private Rectangle positionCurseurBackground;
@@ -68,6 +69,10 @@ public class ZoneModelisation extends Pane {
         // Initialisation du canvas pour le quadrillage
         gridCanvas = new Canvas();
         this.getChildren().add(0, gridCanvas); // Ajout en fond (index 0)
+
+        contentGroup = new Group();
+        this.getChildren().add(contentGroup);
+
         // Ecouteurs pour redimensionnement
         this.widthProperty().addListener((obs, oldVal, newVal) -> {
             gridCanvas.setWidth(newVal.doubleValue());
@@ -134,17 +139,22 @@ public class ZoneModelisation extends Pane {
         this.selectionListener = listener;
     }
 
+    public Group getContentGroup() {
+        return contentGroup;
+    }
+
     public void setTypeSchema(boolean isUML) {
         this.isUML = isUML;
 
         // Supprimer uniquement les entités et lignes, pas le quadrillage ni le curseur
-        List<Node> nodesToRemove = new ArrayList<>();
-        for (Node node : this.getChildren()) {
-            if (node != gridCanvas && node != positionCurseurGroup) {
-                nodesToRemove.add(node);
-            }
-        }
-        this.getChildren().removeAll(nodesToRemove);
+        contentGroup.getChildren().clear();
+        //List<Node> nodesToRemove = new ArrayList<>();
+        //for (Node node : this.getChildren()) {
+        //    if (node != gridCanvas && node != positionCurseurGroup) {
+        //        nodesToRemove.add(node);
+        //    }
+        //}
+        //this.getChildren().removeAll(nodesToRemove);
 
         entiteToGroup.clear();
         entiteById.clear();
@@ -271,8 +281,8 @@ public class ZoneModelisation extends Pane {
                 String typeLien = rel.get("type_schema").equals("UML") ? "Héritage" : "Relation";
                 String cardSource = (String) rel.getOrDefault("cardinalite_source", "[ ]");
                 String cardCible = (String) rel.getOrDefault("cardinalite_cible", "[ ]");
-                
-String relationNom = (String) rel.getOrDefault("nom_relation", "Relation");
+
+                String relationNom = (String) rel.getOrDefault("nom_relation", "Relation");
                 if (!relationExiste(source, cible, typeLien)) {
                     creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, cardSource, cardCible, relationNom);
                 }
@@ -287,8 +297,8 @@ String relationNom = (String) rel.getOrDefault("nom_relation", "Relation");
         }
         //--Ajout Lyna
         if (relationNom == null || relationNom.isEmpty()) {
-    relationNom = "Relation";
-}
+            relationNom = "Relation";
+        }
 //--
         Group g1 = entiteToGroup.get((Integer) source.get("id"));
         Group g2 = entiteToGroup.get((Integer) cible.get("id"));
@@ -306,11 +316,11 @@ String relationNom = (String) rel.getOrDefault("nom_relation", "Relation");
             lignesAssociees.add(la);
 
             la.MajPosition();
-            this.getChildren().add(0, ligne);
+            contentGroup.getChildren().add(0, ligne);
+            contentGroup.getChildren().addAll(la.cardinaliteSourceText, la.cardinaliteCibleText);
 
             // ====== Cas ERD ======
         } else {
-            
 
             // Créer la nouvelle relation ERD
             RelationERD relationERD = new RelationERD(
@@ -322,16 +332,13 @@ String relationNom = (String) rel.getOrDefault("nom_relation", "Relation");
             relationsERD.add(relationERD);
 
             // Ajouter tous les éléments visuels à la scène
-            this.getChildren().addAll(
+            contentGroup.getChildren().addAll(
                     relationERD.getLigne1(),
                     relationERD.getLigne2(),
                     relationERD.getRelationGroup(),
                     relationERD.getCardinaliteSourceText(),
                     relationERD.getCardinaliteCibleText()
             );
-            
-            
-
 
             // Stocker le texte relation pour mise à jour depuis panneau
             source.put("relation_text", relationERD.getRelationGroup().getChildren().get(1)); // Le Text est le 2ème enfant
@@ -342,25 +349,41 @@ String relationNom = (String) rel.getOrDefault("nom_relation", "Relation");
      * Crée un lien entre deux entités avec des cardinalités par défaut [ ].
      */
     public void creerLienEntreEntites(Map<String, Object> source, Map<String, Object> cible, String typeLien) {
-    String relationNom = "Relation";
+        String relationNom = "Relation";
         creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, "[ ]", "[ ]", relationNom);
-       
+
     }
-    
-
-
-
 
     private void ajouterEntiteUML(Map<String, Object> entite) {
-        Group entiteVisuelle = new Group();
-        visuel.ajouterEntite(entiteVisuelle, entite, "UML");
-        setupEntiteInteraction(entiteVisuelle, entite);
+        Integer entiteId = (Integer) entite.get("id");
+        Group entiteVisuelle = entiteToGroup.get(entiteId);
+
+        if (entiteVisuelle == null) {
+            entiteVisuelle = new Group();
+            visuel.ajouterEntite(entiteVisuelle, entite, "UML");
+            setupEntiteInteraction(entiteVisuelle, entite);
+            contentGroup.getChildren().add(entiteVisuelle);
+            entiteToGroup.put(entiteId, entiteVisuelle);
+        } else {
+            // Mettre à jour le contenu sans recréer ni réajouter
+            visuel.ajouterEntite(entiteVisuelle, entite, "UML");
+            // Ne rien faire d'autre, surtout ne pas réajouter dans contentGroup
+        }
     }
 
     private void ajouterEntiteERD(Map<String, Object> entite) {
-        Group entiteVisuelle = new Group();
-        visuel.ajouterEntite(entiteVisuelle, entite, "ERD");
-        setupEntiteInteraction(entiteVisuelle, entite);
+        Integer entiteId = (Integer) entite.get("id");
+        Group entiteVisuelle = entiteToGroup.get(entiteId);
+
+        if (entiteVisuelle == null) {
+            entiteVisuelle = new Group();
+            visuel.ajouterEntite(entiteVisuelle, entite, "ERD");
+            setupEntiteInteraction(entiteVisuelle, entite);
+            contentGroup.getChildren().add(entiteVisuelle);
+            entiteToGroup.put(entiteId, entiteVisuelle);
+        } else {
+            visuel.ajouterEntite(entiteVisuelle, entite, "ERD");
+        }
     }
 
     private void setupEntiteInteraction(Group entiteVisuelle, Map<String, Object> entite) {
@@ -412,7 +435,6 @@ String relationNom = (String) rel.getOrDefault("nom_relation", "Relation");
         });
 
         // Ajout dans la scène et cache
-        this.getChildren().add(entiteVisuelle);
         Integer entiteId = (Integer) entite.get("id");
         entiteToGroup.put(entiteId, entiteVisuelle);
     }
@@ -464,7 +486,7 @@ String relationNom = (String) rel.getOrDefault("nom_relation", "Relation");
         Group oldGroup = entiteToGroup.get(entiteId);
 
         if (oldGroup != null) {
-            this.getChildren().remove(oldGroup);
+            contentGroup.getChildren().remove(oldGroup);  // <-- retirer de contentGroup, pas de this.getChildren()
             entiteToGroup.remove(entiteId);
         }
 
@@ -575,7 +597,6 @@ String relationNom = (String) rel.getOrDefault("nom_relation", "Relation");
             this.cardCible = cardCible;
             this.cardinaliteSourceText = new Text(cardSource != null ? cardSource : "");
             this.cardinaliteCibleText = new Text(cardCible != null ? cardCible : "");
-            ZoneModelisation.this.getChildren().addAll(cardinaliteSourceText, cardinaliteCibleText);
         }
 
         // Pour ERD (Text fourni)

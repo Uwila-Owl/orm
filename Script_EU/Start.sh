@@ -59,8 +59,8 @@ show_system_status() {
     fi
     
     # Vérification des bibliothèques JavaFX
-    if [ -d "./JavaFX_Lib" ]; then
-        JAVAFX_COUNT=$(find ./JavaFX_Lib -name "*.jar" -type f 2>/dev/null | wc -l)
+    if [ -d "./JavaFX_Lib/Lnx" ]; then
+        JAVAFX_COUNT=$(find ./JavaFX_Lib/Lnx -name "*.jar" -type f 2>/dev/null | wc -l)
         if [ $JAVAFX_COUNT -gt 0 ]; then
             echo -e "   ${GREEN}✓${NC} Bibliothèques JavaFX: $JAVAFX_COUNT fichiers présents"
         else
@@ -126,7 +126,7 @@ launch_application() {
     fi
     
     # Construction du module-path JavaFX
-    JAVAFX_JARS=$(find "./JavaFX_Lib" -name "*.jar" -type f 2>/dev/null)
+    JAVAFX_JARS=$(find "./JavaFX_Lib/Lnx" -name "*.jar" -type f 2>/dev/null)
     if [ -z "$JAVAFX_JARS" ]; then
         echo -e "${RED}❌ Erreur: Aucune bibliothèque JavaFX trouvée!${NC}"
         return 1
@@ -155,10 +155,10 @@ launch_application() {
     
     # Lancement de l'application
     java --module-path "$MODULE_PATH" \
-         --add-modules javafx.controls,javafx.fxml,javafx.graphics \
+         --add-modules javafx.controls,javafx.fxml,javafx.graphics,javafx.swing \
          --enable-native-access=javafx.graphics \
          -cp "$CLASSPATH" \
-         InterfaceGenerateurUML
+         FenetreLogin
     
     local exit_code=$?
     echo

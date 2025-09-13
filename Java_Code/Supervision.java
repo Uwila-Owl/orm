@@ -47,6 +47,7 @@ public class Supervision extends JFrame {
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
+        setMinimumSize(new Dimension(800, 600));
         setLocationRelativeTo(null);
 
         JPanel choixPanel = new JPanel(new GridBagLayout());

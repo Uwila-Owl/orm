@@ -155,7 +155,7 @@ main() {
                 wait_for_user
                 ;;
             2) 
-                git fetch && git checkout Test && git pull origin Test 
+                git pull
                 wait_for_user
                 ;;
             3) 

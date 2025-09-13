@@ -35,9 +35,9 @@ goto main_loop
 
 :show_title
 echo ╔══════════════════════════════════════════════════════════╗
-echo ║                    GENERATEUR UML                       ║
+echo ║                    GENERATEUR UML                        ║
 echo ╠══════════════════════════════════════════════════════════╣
-echo ║                   Version Client v1.0                   ║
+echo ║                   Version Client v1.0                    ║
 echo ╚══════════════════════════════════════════════════════════╝
 echo.
 goto :eof
@@ -163,7 +163,7 @@ echo Démarrage de l'application...
 echo.
 
 REM Lancement de l'application
-java --module-path "%MODULE_PATH%" --add-modules javafx.controls,javafx.fxml,javafx.graphics --enable-native-access=javafx.graphics -cp "%CLASSPATH%" InterfaceGenerateurUML
+call launch.bat
 
 set "exit_code=%errorlevel%"
 echo.

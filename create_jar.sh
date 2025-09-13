@@ -8,6 +8,8 @@ echo "=== Script de création JAR GenerateurUML ==="
 # Définition des chemins
 CLASS_DIR="./Class"
 MANIFEST_DIR="./Manifest"
+ENCRYPTION_DIR="./Encryption"
+CONFIG_FILE="config.properties"
 JAR_NAME="GenerateurUML.jar"
 OUTPUT_DIR="."
 
@@ -54,6 +56,16 @@ fi
 
 echo "✓ Fichier manifest trouvé: $(basename "$MANIFEST_FILE")"
 
+# Vérification de l'existence du fichier config.properties
+CONFIG_PATH="$ENCRYPTION_DIR/$CONFIG_FILE"
+if [ ! -f "$CONFIG_PATH" ]; then
+    echo "Erreur: Le fichier $CONFIG_PATH n'existe pas!"
+    echo "Ce fichier est nécessaire pour la connexion à la base de données."
+    exit 1
+fi
+
+echo "✓ Fichier config.properties trouvé: $CONFIG_PATH"
+
 # Affichage du contenu du manifest
 echo "Contenu du manifest:"
 echo "-------------------"
@@ -67,6 +79,16 @@ if [ -f "$OUTPUT_DIR/$JAR_NAME" ]; then
     rm "$OUTPUT_DIR/$JAR_NAME"
 fi
 
+# Copie du fichier config.properties dans le dossier Class
+echo "Copie du fichier config.properties..."
+cp "$CONFIG_PATH" "$CLASS_DIR/"
+if [ $? -eq 0 ]; then
+    echo "✓ config.properties copié dans $CLASS_DIR"
+else
+    echo "Erreur: Impossible de copier config.properties!"
+    exit 1
+fi
+
 # Création du JAR
 echo "Création du JAR $JAR_NAME..."
 cd "$CLASS_DIR"
@@ -75,6 +97,13 @@ jar cfm "../$JAR_NAME" "../$MANIFEST_FILE" *
 # Vérification du succès de la création
 if [ $? -eq 0 ] && [ -f "../$JAR_NAME" ]; then
     cd ..
+    
+    # Nettoyage : suppression du config.properties temporaire du dossier Class
+    if [ -f "$CLASS_DIR/$CONFIG_FILE" ]; then
+        rm "$CLASS_DIR/$CONFIG_FILE"
+        echo "✓ Fichier config.properties temporaire supprimé du dossier Class"
+    fi
+    
     JAR_SIZE=$(ls -lh "$JAR_NAME" | awk '{print $5}')
     echo "=> JAR créé avec succès: $JAR_NAME (taille: $JAR_SIZE)"
     
@@ -90,6 +119,13 @@ if [ $? -eq 0 ] && [ -f "../$JAR_NAME" ]; then
     echo "---------------"
     echo "Total: $TOTAL_FILES fichiers dans le JAR"
     
+    # Vérification que config.properties est bien inclus
+    if jar tf "$JAR_NAME" | grep -q "config.properties"; then
+        echo "✓ config.properties inclus dans le JAR"
+    else
+        echo "⚠ Attention: config.properties ne semble pas être dans le JAR"
+    fi
+    
     echo
     echo "=> $JAR_NAME est prêt à être exécuté!"
     echo "Pour lancer l'application:"
@@ -98,6 +134,12 @@ if [ $? -eq 0 ] && [ -f "../$JAR_NAME" ]; then
     echo "=== Création du JAR terminée avec succès ==="
 else
     cd ..
+    
+    # Nettoyage en cas d'erreur
+    if [ -f "$CLASS_DIR/$CONFIG_FILE" ]; then
+        rm "$CLASS_DIR/$CONFIG_FILE"
+    fi
+    
     echo "=> Erreur lors de la création du JAR!"
     echo "=== Création du JAR échouée ==="
     exit 1
