@@ -709,4 +709,32 @@ public class ZoneModelisation extends Pane {
         }
     }
 
+    public void supprimerEntite(int entiteId) {
+    // Supprimer l'entité des maps
+    Map<String, Object> entite = entiteById.remove(entiteId);
+    Group group = entiteToGroup.remove(entiteId);
+
+    if (group != null) {
+        contentGroup.getChildren().remove(group);
+    }
+
+    // Supprimer les liens associés
+    lignesAssociees.removeIf(la -> {
+        Map<String,Object> src = la.e1; 
+        Map<String,Object> dst = la.e2; 
+        if ((int) src.get("id") == entiteId || (int) dst.get("id") == entiteId) {
+            contentGroup.getChildren().remove(la.ligne);
+            contentGroup.getChildren().removeAll(la.cardinaliteSourceText, la.cardinaliteCibleText);
+            if (la.relationGroup != null) {
+                contentGroup.getChildren().remove(la.relationGroup);
+            }
+            return true;
+        }
+        return false;
+    });
+
+   
+  }
+
+
 }
