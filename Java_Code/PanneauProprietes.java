@@ -27,6 +27,10 @@ public class PanneauProprietes extends VBox {
     private Button btnCreerLien;
     private Button btnAjoutAttr;
     private RadioButton rbPK, rbFK;
+    private Button btnSupprimerBloc;
+    private Label labelVide = new Label("Aucune entité sélectionnée");
+
+
     // --- Zone Info Bloc ---
 private Label lblNomBloc;
 private Label lblPK;
@@ -157,9 +161,40 @@ this.getChildren().add(infoBloc);
 
         HBox lienBox = new HBox(5, cbLien, btnCreerLien);
         VBox cardBox = new VBox(5, new Label("Cardinalités :"), tfCardSource, tfCardCible);
+        
+        
+
+        
+ btnSupprimerBloc = new Button("Supprimer ce bloc");
+btnSupprimerBloc.setStyle("-fx-background-color: #ff4d4d; -fx-text-fill: white; -fx-font-weight: bold;");
+btnSupprimerBloc.setOnAction(e -> {
+    if (entiteCourante != null) {
+        int entiteId = (int) entiteCourante.get("id");
+        zone.supprimerEntite(entiteId); // Supprime graphiquement l'entité de la zone
+        entiteCourante = null;
+
+        // Réinitialisation des champs du panneau sans supprimer le panneau
+        tfNom.clear();
+        tfNomRelation.clear();
+        attrBox.getChildren().clear();
+        rbPK.setSelected(false);
+        rbFK.setSelected(false);
+        tfCardSource.clear();
+        tfCardCible.clear();
+
+        // Réinitialisation des labels Info Bloc
+        lblNomBloc.setText("Nom du bloc : ");
+        lblPK.setText("Clé primaire : ");
+        lblFK.setText("Clé étrangère : ");
+        lblRelation.setText("Relation : ");
+    }
+});
+
+
+
 
         // Ajout des éléments dans l'ordre, avec Nom relation avant la liste des attributs
-        this.getChildren().addAll(lblNom, tfNom, lblNomRelation, tfNomRelation, lblAttr, attrInput, btnAjoutAttr, attrBox, cardBox, lienBox);
+        this.getChildren().addAll(lblNom, tfNom, lblNomRelation, tfNomRelation, lblAttr, attrInput, btnAjoutAttr, attrBox, cardBox, lienBox, btnSupprimerBloc);
     }
 
     public void remplirPanneau(Map<String, Object> entite) {
