@@ -16,7 +16,7 @@ public class Ventilation extends JDialog {
 
     private static final Logger LOGGER = Logger.getLogger(Ventilation.class.getName());
     private ConnexionBdd connexionBdd;
-    private String userId; // L'ID de l'utilisateur connecté
+    private String prenom;
     private EntiteDAO entiteDAO = new EntiteDAO(); // Ajouter cette ligne
     private RelationDAO relationDAO = new RelationDAO(); // Ajouter cette ligne
     private LogDAO logDAO = new LogDAO(); // Pour la journalisation
@@ -30,8 +30,9 @@ public class Ventilation extends JDialog {
 
     public Ventilation(JFrame parent, ConnexionBdd connexionBdd, String userId) {
         super(parent, "Gestion des Schémas", true);
+        String prenom = UserSession.getInstance().getPrenom();
         this.connexionBdd = connexionBdd;
-        this.userId = userId;
+        this.prenom = prenom;
 
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setSize(600, 400);
@@ -41,7 +42,7 @@ public class Ventilation extends JDialog {
         mainPanel.setBackground(bgColor);
         mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        JLabel titleLabel = new JLabel("Bienvenue, " + userId + " !");
+        JLabel titleLabel = new JLabel("Bienvenue, " + prenom + " !");
         titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
         titleLabel.setForeground(btnColor);
