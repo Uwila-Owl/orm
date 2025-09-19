@@ -1,9 +1,10 @@
 import javafx.embed.swing.JFXPanel;
 import javax.swing.*;
+import javax.swing.event.DocumentListener;
+
 import java.awt.*;
 import java.awt.event.*;
 import java.sql.*;
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -524,6 +525,12 @@ public class FenetreLogin extends JFrame {
                 return;
             }
 
+            if (!isValidEmail(email)) {
+                JOptionPane.showMessageDialog(creationDialog, "Veuillez saisir une adresse email valide.", "Erreur email", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+
             if (creerUtilisateur(id, nom, prenom, email, idDiscord, password)) {
                 JOptionPane.showMessageDialog(creationDialog, "Utilisateur créé avec succès!");
                 creationDialog.dispose();
@@ -557,6 +564,13 @@ public class FenetreLogin extends JFrame {
         }
         return true;
     }
+
+    private boolean isValidEmail(String email) {
+        // Expression régulière simple pour valider un email basique
+        String emailRegex = "^[\\w.-]+@[\\w.-]+\\.[a-zA-Z]{2,}$";
+        return email.matches(emailRegex);
+    }
+
 
     private boolean creerUtilisateur(String id, String nom, String prenom, String email, String idDiscord, String password) {
         try (Connection connection = connexionBdd.getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(
