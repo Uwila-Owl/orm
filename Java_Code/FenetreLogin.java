@@ -1,4 +1,3 @@
-
 import javafx.embed.swing.JFXPanel;
 import javax.swing.*;
 import java.awt.*;
@@ -352,7 +351,7 @@ public class FenetreLogin extends JFrame {
     // ===== Fenêtre création utilisateur =====
     private void ouvrirFenetreCreation() {
         JDialog creationDialog = new JDialog(this, "Création d'utilisateur", true);
-        creationDialog.setSize(400, 400);
+        creationDialog.setSize(450, 550); // Ajuster la taille pour les labels de validation
         creationDialog.setLocationRelativeTo(this);
 
         JPanel panel = new JPanel(new GridBagLayout());
@@ -378,6 +377,73 @@ public class FenetreLogin extends JFrame {
 
         JLabel passwordLabel = new JLabel("Mot de passe:");
         JPasswordField passwordField = new JPasswordField(15);
+
+        // Labels de validation du mot de passe
+        JLabel lengthLabel = new JLabel("<html>&#x274C; 12 caractères minimum</html>");
+        JLabel uppercaseLabel = new JLabel("<html>&#x274C; 1 majuscule minimum</html>");
+        JLabel digitLabel = new JLabel("<html>&#x274C; 1 chiffre minimum</html>");
+        JLabel specialCharLabel = new JLabel("<html>&#x274C; 1 caractère spécial minimum (!@#$%^&*)</html>");
+
+        lengthLabel.setForeground(Color.RED);
+        uppercaseLabel.setForeground(Color.RED);
+        digitLabel.setForeground(Color.RED);
+        specialCharLabel.setForeground(Color.RED);
+
+        // Listener pour la validation en temps réel du mot de passe
+        passwordField.getDocument().addDocumentListener(new DocumentListener() {
+            public void changedUpdate(DocumentEvent e) {
+                validatePassword();
+            }
+
+            public void removeUpdate(DocumentEvent e) {
+                validatePassword();
+            }
+
+            public void insertUpdate(DocumentEvent e) {
+                validatePassword();
+            }
+
+            private void validatePassword() {
+                String password = new String(passwordField.getPassword());
+
+                // Longueur
+                if (password.length() >= 12) {
+                    lengthLabel.setText("<html>&#x2705; 12 caractères minimum</html>");
+                    lengthLabel.setForeground(Color.GREEN);
+                } else {
+                    lengthLabel.setText("<html>&#x274C; 12 caractères minimum</html>");
+                    lengthLabel.setForeground(Color.RED);
+                }
+
+                // Majuscule
+                if (password.matches(".*[A-Z].*")) {
+                    uppercaseLabel.setText("<html>&#x2705; 1 majuscule minimum</html>");
+                    uppercaseLabel.setForeground(Color.GREEN);
+                } else {
+                    uppercaseLabel.setText("<html>&#x274C; 1 majuscule minimum</html>");
+                    uppercaseLabel.setForeground(Color.RED);
+                }
+
+                // Chiffre
+                if (password.matches(".*[0-9].*")) {
+                    digitLabel.setText("<html>&#x2705; 1 chiffre minimum</html>");
+                    digitLabel.setForeground(Color.GREEN);
+                } else {
+                    digitLabel.setText("<html>&#x274C; 1 chiffre minimum</html>");
+                    digitLabel.setForeground(Color.RED);
+                }
+
+                // Caractère spécial
+                if (password.matches(".*[!@#$%^&*].*")) {
+                    specialCharLabel.setText("<html>&#x2705; 1 caractère spécial minimum (!@#$%^&*)</html>");
+                    specialCharLabel.setForeground(Color.GREEN);
+                } else {
+                    specialCharLabel.setText("<html>&#x274C; 1 caractère spécial minimum (!@#$%^&*)</html>");
+                    specialCharLabel.setForeground(Color.RED);
+                }
+            }
+        });
+
 
         JButton createButton = new JButton("Créer");
 
@@ -417,8 +483,23 @@ public class FenetreLogin extends JFrame {
         gbc.gridx = 1;
         panel.add(passwordField, gbc);
 
+        // Ajout des labels de validation
         gbc.gridx = 0;
         gbc.gridy = 6;
+        gbc.gridwidth = 2;
+        panel.add(lengthLabel, gbc);
+
+        gbc.gridy = 7;
+        panel.add(uppercaseLabel, gbc);
+
+        gbc.gridy = 8;
+        panel.add(digitLabel, gbc);
+
+        gbc.gridy = 9;
+        panel.add(specialCharLabel, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 10; // Nouvelle position pour le bouton Créer
         gbc.gridwidth = 2;
         panel.add(createButton, gbc);
 
@@ -437,6 +518,12 @@ public class FenetreLogin extends JFrame {
                 return;
             }
 
+            // Validation du mot de passe avant la création
+            if (!isValidPassword(password)) {
+                JOptionPane.showMessageDialog(creationDialog, "Le mot de passe ne respecte pas les critères de sécurité.", "Erreur de mot de passe", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
             if (creerUtilisateur(id, nom, prenom, email, idDiscord, password)) {
                 JOptionPane.showMessageDialog(creationDialog, "Utilisateur créé avec succès!");
                 creationDialog.dispose();
@@ -448,6 +535,27 @@ public class FenetreLogin extends JFrame {
         });
 
         creationDialog.setVisible(true);
+    }
+
+    // Nouvelle méthode pour valider le mot de passe
+    private boolean isValidPassword(String password) {
+        // 12 caractères minimum
+        if (password.length() < 12) {
+            return false;
+        }
+        // 1 majuscule minimum
+        if (!password.matches(".*[A-Z].*")) {
+            return false;
+        }
+        // 1 chiffre minimum
+        if (!password.matches(".*[0-9].*")) {
+            return false;
+        }
+        // 1 caractère spécial minimum (!@#$%^&*)
+        if (!password.matches(".*[!@#$%^&*].*")) {
+            return false;
+        }
+        return true;
     }
 
     private boolean creerUtilisateur(String id, String nom, String prenom, String email, String idDiscord, String password) {
