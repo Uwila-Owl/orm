@@ -16,6 +16,7 @@ public class Ventilation extends JDialog {
 
     private static final Logger LOGGER = Logger.getLogger(Ventilation.class.getName());
     private ConnexionBdd connexionBdd;
+    private String userId;
     private String prenom;
     private EntiteDAO entiteDAO = new EntiteDAO(); // Ajouter cette ligne
     private RelationDAO relationDAO = new RelationDAO(); // Ajouter cette ligne
@@ -28,11 +29,11 @@ public class Ventilation extends JDialog {
     private final Font labelFont = new Font("Arial", Font.BOLD, 14);
     private final Font buttonFont = new Font("Arial", Font.BOLD, 14);
 
-    public Ventilation(JFrame parent, ConnexionBdd connexionBdd, String userId) {
+    public Ventilation(JFrame parent, ConnexionBdd connexionBdd, String userIdFromLogin) {
         super(parent, "Gestion des Schémas", true);
-        String prenom = UserSession.getInstance().getPrenom();
         this.connexionBdd = connexionBdd;
-        this.prenom = prenom;
+        this.prenom = UserSession.getInstance().getPrenom();
+        this.userId = userIdFromLogin;
 
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setSize(600, 400);
@@ -42,7 +43,7 @@ public class Ventilation extends JDialog {
         mainPanel.setBackground(bgColor);
         mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        JLabel titleLabel = new JLabel("Bienvenue, " + prenom + " !");
+        JLabel titleLabel = new JLabel("Bienvenue, " + this.prenom + " !");
         titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
         titleLabel.setForeground(btnColor);
@@ -85,8 +86,7 @@ public class Ventilation extends JDialog {
         if (nomSchema != null && !nomSchema.trim().isEmpty()) {
 
             int currentSchemaCount = 0;
-            try (Connection conn = connexionBdd.getConnection();
-                PreparedStatement pstmt = conn.prepareStatement("SELECT COUNT(*) FROM ventilation WHERE user_id = ?")) {
+            try (Connection conn = connexionBdd.getConnection(); PreparedStatement pstmt = conn.prepareStatement("SELECT COUNT(*) FROM ventilation WHERE user_id = ?")) {
                 pstmt.setString(1, userId);
                 try (ResultSet rs = pstmt.executeQuery()) {
                     if (rs.next()) {
@@ -103,8 +103,8 @@ public class Ventilation extends JDialog {
 
             if (currentSchemaCount >= MAX_SCHEMAS_PER_USER) {
                 JOptionPane.showMessageDialog(this,
-                    "Vous avez atteint la limite de " + MAX_SCHEMAS_PER_USER + " schémas. Veuillez supprimer des schémas existants pour en créer de nouveaux.",
-                    "Limite de schémas atteinte", JOptionPane.WARNING_MESSAGE);
+                        "Vous avez atteint la limite de " + MAX_SCHEMAS_PER_USER + " schémas. Veuillez supprimer des schémas existants pour en créer de nouveaux.",
+                        "Limite de schémas atteinte", JOptionPane.WARNING_MESSAGE);
                 logDAO.insertLog(userId, "Tentative de création de schéma échouée : limite de " + MAX_SCHEMAS_PER_USER + " schémas atteinte pour l'utilisateur " + userId, "WARNING");
                 return; // Arrête le processus si la limite est atteinte
             }

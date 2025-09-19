@@ -1,7 +1,7 @@
 import javafx.embed.swing.JFXPanel;
 import javax.swing.*;
 import javax.swing.event.DocumentListener;
-
+import javax.swing.event.DocumentEvent;
 import java.awt.*;
 import java.awt.event.*;
 import java.sql.*;
@@ -410,7 +410,7 @@ public class FenetreLogin extends JFrame {
                 // Longueur
                 if (password.length() >= 12) {
                     lengthLabel.setText("<html>&#x2705; 12 caractères minimum</html>");
-                    lengthLabel.setForeground(Color.GREEN);
+                    lengthLabel.setForeground(new Color(0, 100, 0));
                 } else {
                     lengthLabel.setText("<html>&#x274C; 12 caractères minimum</html>");
                     lengthLabel.setForeground(Color.RED);
@@ -419,7 +419,7 @@ public class FenetreLogin extends JFrame {
                 // Majuscule
                 if (password.matches(".*[A-Z].*")) {
                     uppercaseLabel.setText("<html>&#x2705; 1 majuscule minimum</html>");
-                    uppercaseLabel.setForeground(Color.GREEN);
+                    uppercaseLabel.setForeground(new Color(0, 100, 0));
                 } else {
                     uppercaseLabel.setText("<html>&#x274C; 1 majuscule minimum</html>");
                     uppercaseLabel.setForeground(Color.RED);
@@ -428,7 +428,7 @@ public class FenetreLogin extends JFrame {
                 // Chiffre
                 if (password.matches(".*[0-9].*")) {
                     digitLabel.setText("<html>&#x2705; 1 chiffre minimum</html>");
-                    digitLabel.setForeground(Color.GREEN);
+                    digitLabel.setForeground(new Color(0, 100, 0));
                 } else {
                     digitLabel.setText("<html>&#x274C; 1 chiffre minimum</html>");
                     digitLabel.setForeground(Color.RED);
@@ -437,7 +437,7 @@ public class FenetreLogin extends JFrame {
                 // Caractère spécial
                 if (password.matches(".*[!@#$%^&*].*")) {
                     specialCharLabel.setText("<html>&#x2705; 1 caractère spécial minimum (!@#$%^&*)</html>");
-                    specialCharLabel.setForeground(Color.GREEN);
+                    specialCharLabel.setForeground(new Color(0, 100, 0));
                 } else {
                     specialCharLabel.setText("<html>&#x274C; 1 caractère spécial minimum (!@#$%^&*)</html>");
                     specialCharLabel.setForeground(Color.RED);
