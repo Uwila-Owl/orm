@@ -519,6 +519,12 @@ public class FenetreLogin extends JFrame {
                 return;
             }
 
+            if (!isValidLogin(id)) {
+                JOptionPane.showMessageDialog(creationDialog, "Le login doit contenir uniquement des chiffres et faire entre 6 et 10 caractères.", "Erreur login", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+
             // Validation du mot de passe avant la création
             if (!isValidPassword(password)) {
                 JOptionPane.showMessageDialog(creationDialog, "Le mot de passe ne respecte pas les critères de sécurité.", "Erreur de mot de passe", JOptionPane.ERROR_MESSAGE);
@@ -529,7 +535,6 @@ public class FenetreLogin extends JFrame {
                 JOptionPane.showMessageDialog(creationDialog, "Veuillez saisir une adresse email valide.", "Erreur email", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-
 
             if (creerUtilisateur(id, nom, prenom, email, idDiscord, password)) {
                 JOptionPane.showMessageDialog(creationDialog, "Utilisateur créé avec succès!");
@@ -564,6 +569,12 @@ public class FenetreLogin extends JFrame {
         }
         return true;
     }
+
+    private boolean isValidLogin(String login) {
+        // Regex : uniquement chiffres, longueur 6 à 10
+        return login.matches("^\\d{6,10}$");
+    }
+
 
     private boolean isValidEmail(String email) {
         // Expression régulière simple pour valider un email basique
