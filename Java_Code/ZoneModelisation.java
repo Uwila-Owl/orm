@@ -290,59 +290,177 @@ public class ZoneModelisation extends Pane {
         }
     }
 
+    public int getSchemaId() {
+        return (loadedSchemaId != -1) ? loadedSchemaId : schemaId;
+    }
+
     public void creerLienEntreEntitesAvecCardinalites(Map<String, Object> source, Map<String, Object> cible, String typeLien,
             String cardSource, String cardCible, String relationNom) {
         if (source == null || cible == null || source.equals(cible)) {
+            System.err.println("ERREUR : Source ou cible null ou identiques. Retour prématuré.");
             return;
         }
-        //--Ajout Lyna
         if (relationNom == null || relationNom.isEmpty()) {
             relationNom = "Relation";
         }
-//--
+
         Group g1 = entiteToGroup.get((Integer) source.get("id"));
         Group g2 = entiteToGroup.get((Integer) cible.get("id"));
         if (g1 == null || g2 == null) {
+            System.err.println("ERREUR : Group source ou cible non trouvé. Retour prématuré.");
             return;
         }
 
-        // ====== Cas UML ======
-        if (isUML()) {
-            Line ligne = new Line();
-            ligne.setStroke(typeLien.equals("Héritage") ? Color.GREEN : Color.BLACK);
-            ligne.setStrokeWidth(typeLien.equals("Héritage") ? 3 : 1);
+        // Log avant d'entrer dans les blocs mode
+        System.out.println("Mode actuel : isUML = " + isUML + " (ERD attendu si typeLien='Relation': false)");
+        System.out.println("TypeLien reçu : '" + typeLien + "' (UML si 'Héritage', ERD si 'Relation')");
+        System.out.println("CardSource : '" + cardSource + "', CardCible : '" + cardCible + "', RelationNom : '" + relationNom + "'");
+        System.out.println("Taille du contentGroup avant traitement : " + contentGroup.getChildren().size());
 
-            LigneAssociee la = new LigneAssociee(ligne, source, cible, null, null);
-            lignesAssociees.add(la);
+        // ====== Décision basée sur typeLien (plus robuste que isUML) ======
+        if (typeLien.equals("Héritage")) {
+            // Bloc UML (héritage ou association UML)
+            System.out.println(">>> Entrée dans bloc UML (typeLien='Héritage') <<<");
+            try {
+                Line ligne = new Line();
+                ligne.setStroke(Color.GREEN); // Vert pour héritage
+                ligne.setStrokeWidth(3);
 
-            la.MajPosition();
-            contentGroup.getChildren().add(0, ligne);
-            contentGroup.getChildren().addAll(la.cardinaliteSourceText, la.cardinaliteCibleText);
+                LigneAssociee la = new LigneAssociee(ligne, source, cible, cardSource, cardCible);
+                lignesAssociees.add(la);
 
-            // ====== Cas ERD ======
+                la.MajPosition();
+                contentGroup.getChildren().add(0, ligne);
+                contentGroup.getChildren().addAll(la.cardinaliteSourceText, la.cardinaliteCibleText);
+
+                System.out.println("Ajout UML réussi. Taille contentGroup après UML : " + contentGroup.getChildren().size());
+            } catch (Exception e) {
+                System.err.println("ERREUR dans bloc UML : " + e.getMessage());
+                e.printStackTrace();
+            }
+
         } else {
+            // Bloc ERD (pour typeLien='Relation' ou autre)
+            System.out.println(">>> Entrée dans bloc ERD (typeLien != 'Héritage') <<<");
 
-            // Créer la nouvelle relation ERD
-            RelationERD relationERD = new RelationERD(
-                    source, cible, entiteToGroup,
-                    relationNom, cardSource, cardCible
-            );
+            // Force le mode ERD si mismatch (sécurité)
+            if (isUML) {
+                System.out.println("AVERTISSEMENT : isUML=true mais typeLien indique ERD. Forçage temporaire à ERD.");
+                isUML = false; // Temporaire pour ce traitement ; reset si besoin après
+            }
 
-            // Ajouter à la liste des relations ERD
-            relationsERD.add(relationERD);
+            // Étape 1 : Vérification relation existante
+            if (relationExiste(source, cible, typeLien)) {
+                System.err.println("ERREUR : Relation ERD existe déjà. Ignorée.");
+                return;
+            }
 
-            // Ajouter tous les éléments visuels à la scène
-            contentGroup.getChildren().addAll(
-                    relationERD.getLigne1(),
-                    relationERD.getLigne2(),
-                    relationERD.getRelationGroup(),
-                    relationERD.getCardinaliteSourceText(),
-                    relationERD.getCardinaliteCibleText()
-            );
+            // Étape 2 : Création RelationERD
+            RelationERD relationERD = null;
+            try {
+                System.out.println("Création de RelationERD...");
+                relationERD = new RelationERD(source, cible, entiteToGroup, relationNom, cardSource, cardCible);
+                System.out.println("RelationERD créée.");
+            } catch (Exception e) {
+                System.err.println("ERREUR création RelationERD : " + e.getMessage());
+                e.printStackTrace();
+                return;
+            }
 
-            // Stocker le texte relation pour mise à jour depuis panneau
-            source.put("relation_text", relationERD.getRelationGroup().getChildren().get(1)); // Le Text est le 2ème enfant
+            // Étape 3 : Récupération et config éléments
+            try {
+                Line ligne1 = relationERD.getLigne1();
+                Line ligne2 = relationERD.getLigne2();
+                // Ellipse : Commentez si getEllipse() n'existe pas
+                // Ellipse ellipse = relationERD.getEllipse();
+                Group relationGroup = relationERD.getRelationGroup();
+                Text cardinaliteSourceText = relationERD.getCardinaliteSourceText();
+                Text cardinaliteCibleText = relationERD.getCardinaliteCibleText();
+
+                System.out.println("Éléments - Ligne1 null? " + (ligne1 == null) + ", Ligne2 null? " + (ligne2 == null)
+                        + ", RelationGroup null? " + (relationGroup == null)
+                        + ", CardSource null? " + (cardinaliteSourceText == null)
+                        + ", CardCible null? " + (cardinaliteCibleText == null));
+
+                // Initialisation si null (exemple)
+                if (ligne1 == null) {
+                    ligne1 = new Line();
+                    ligne1.setStroke(Color.BLACK);
+                    ligne1.setStrokeWidth(2);
+                    ligne1.setVisible(true);
+                }
+                if (ligne2 == null) {
+                    ligne2 = new Line();
+                    ligne2.setStroke(Color.BLACK);
+                    ligne2.setStrokeWidth(2);
+                    ligne2.setVisible(true);
+                }
+
+                // Visibilité forcée
+                ligne1.setVisible(true);
+                ligne1.setOpacity(1.0);
+                ligne2.setVisible(true);
+                ligne2.setOpacity(1.0);
+                // if (ellipse != null) { ellipse.setVisible(true); ellipse.setOpacity(1.0); }
+                relationGroup.setVisible(true);
+                relationGroup.setOpacity(1.0);
+                if (cardinaliteSourceText != null) {
+                    cardinaliteSourceText.setVisible(true);
+                    cardinaliteSourceText.setOpacity(1.0);
+                    cardinaliteSourceText.setFill(Color.BLACK);
+                    System.out.println("Card source text: '" + cardinaliteSourceText.getText() + "'");
+                }
+                if (cardinaliteCibleText != null) {
+                    cardinaliteCibleText.setVisible(true);
+                    cardinaliteCibleText.setOpacity(1.0);
+                    cardinaliteCibleText.setFill(Color.BLACK);
+                    System.out.println("Card cible text: '" + cardinaliteCibleText.getText() + "'");
+                }
+
+            } catch (Exception e) {
+                System.err.println("ERREUR config éléments : " + e.getMessage());
+                e.printStackTrace();
+                return;
+            }
+
+            // Étape 4 : Mise à jour positions
+            try {
+                System.out.println("Mise à jour positions...");
+                relationERD.mettreAJourPositions();
+                System.out.println("Positions mises à jour.");
+            } catch (Exception e) {
+                System.err.println("ERREUR positions : " + e.getMessage());
+                e.printStackTrace();
+                return;
+            }
+
+            // Étape 5 : Ajout séquentiel
+            System.out.println("Taille avant ajout ERD : " + contentGroup.getChildren().size());
+            try {
+                contentGroup.getChildren().add(relationERD.getLigne1());
+                contentGroup.getChildren().add(relationERD.getLigne2());
+                // contentGroup.getChildren().add(relationERD.getEllipse()); // Si existe
+                contentGroup.getChildren().add(relationERD.getRelationGroup());
+                if (relationERD.getCardinaliteSourceText() != null) {
+                    contentGroup.getChildren().add(relationERD.getCardinaliteSourceText());
+                }
+                if (relationERD.getCardinaliteCibleText() != null) {
+                    contentGroup.getChildren().add(relationERD.getCardinaliteCibleText());
+                }
+
+                relationsERD.add(relationERD);
+                source.put("relation_text", relationERD.getRelationGroup().getChildren().get(1));
+
+                System.out.println("Taille après ajout ERD : " + contentGroup.getChildren().size());
+                System.out.println(">>> ERD réussi ! <<<");
+            } catch (Exception e) {
+                System.err.println("ERREUR ajout : " + e.getMessage());
+                e.printStackTrace();
+                return;
+            }
         }
+
+        System.out.println("Fin de creerLienEntreEntitesAvecCardinalites.");
     }
 
     /**
@@ -710,31 +828,29 @@ public class ZoneModelisation extends Pane {
     }
 
     public void supprimerEntite(int entiteId) {
-    // Supprimer l'entité des maps
-    Map<String, Object> entite = entiteById.remove(entiteId);
-    Group group = entiteToGroup.remove(entiteId);
+        // Supprimer l'entité des maps
+        Map<String, Object> entite = entiteById.remove(entiteId);
+        Group group = entiteToGroup.remove(entiteId);
 
-    if (group != null) {
-        contentGroup.getChildren().remove(group);
-    }
-
-    // Supprimer les liens associés
-    lignesAssociees.removeIf(la -> {
-        Map<String,Object> src = la.e1; 
-        Map<String,Object> dst = la.e2; 
-        if ((int) src.get("id") == entiteId || (int) dst.get("id") == entiteId) {
-            contentGroup.getChildren().remove(la.ligne);
-            contentGroup.getChildren().removeAll(la.cardinaliteSourceText, la.cardinaliteCibleText);
-            if (la.relationGroup != null) {
-                contentGroup.getChildren().remove(la.relationGroup);
-            }
-            return true;
+        if (group != null) {
+            contentGroup.getChildren().remove(group);
         }
-        return false;
-    });
 
-   
-  }
+        // Supprimer les liens associés
+        lignesAssociees.removeIf(la -> {
+            Map<String, Object> src = la.e1;
+            Map<String, Object> dst = la.e2;
+            if ((int) src.get("id") == entiteId || (int) dst.get("id") == entiteId) {
+                contentGroup.getChildren().remove(la.ligne);
+                contentGroup.getChildren().removeAll(la.cardinaliteSourceText, la.cardinaliteCibleText);
+                if (la.relationGroup != null) {
+                    contentGroup.getChildren().remove(la.relationGroup);
+                }
+                return true;
+            }
+            return false;
+        });
 
+    }
 
 }
