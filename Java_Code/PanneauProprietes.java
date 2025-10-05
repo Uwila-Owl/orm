@@ -16,15 +16,12 @@ public class PanneauProprietes extends VBox {
     private TextField tfNom;
     private TextField tfNomRelation; // Nouveau champ
     private TextField tfAttrNom;
-    private TextField tfCardSource;
-    private TextField tfCardCible;
     private ToggleGroup tgCle;
     private VBox attrBox;
     private Map<String, Object> entiteCourante;
     private ZoneModelisation zone;
-    private ComboBox<String> cbAttrType;
     private ComboBox<String> cbLien;
-    private Button btnCreerLien;
+   
     private Button btnAjoutAttr;
     private RadioButton rbPK, rbFK;
     private Button btnSupprimerBloc;
@@ -35,7 +32,19 @@ public class PanneauProprietes extends VBox {
 private Label lblNomBloc;
 private Label lblPK;
 private Label lblFK;
-private Label lblRelation;
+
+
+private VBox attributsBox;   // Zone 2 : liste des attributs
+private TextField tfEditNom;
+private RadioButton rbEditPK;
+private RadioButton rbEditFK;
+private RadioButton rbEditSimple;
+private Button btnAppliquerModif;
+
+// Zone 3 : liste des relations
+private VBox relationBox; // contiendra les relations et leurs boutons
+private RelationDAO relationDAO = new RelationDAO(); // DAO pour manipuler les relations
+
 
     String userId = UserSession.getInstance().getUserId();
 
@@ -61,9 +70,9 @@ titreInfo.setStyle("-fx-font-weight: bold; -fx-background-color: #e6e6e6; -fx-pa
 lblNomBloc = new Label("Nom du bloc : ");
 lblPK = new Label("Clé primaire : ");
 lblFK = new Label("Clé étrangère : ");
-lblRelation = new Label("Relation : ");
 
-VBox infoBloc = new VBox(5, titreInfo, lblNomBloc, lblPK, lblFK, lblRelation);
+
+VBox infoBloc = new VBox(5, titreInfo, lblNomBloc, lblPK, lblFK);
 infoBloc.setPadding(new Insets(10));
 infoBloc.setStyle("-fx-background-color: #f4f4f4; -fx-border-color: #ccc; -fx-border-radius: 5;");
 
@@ -89,14 +98,38 @@ this.getChildren().add(infoBloc);
                 zone.mettreAJourEntite(entiteCourante);
             }
         });
+        
+        // --- Zone 2 : Liste des attributs ---
+Label lblZone2 = new Label("Liste des attributs :");
+lblZone2.setStyle("-fx-font-weight: bold; -fx-background-color: #e6e6e6; -fx-padding: 5; -fx-font-size: 12px;");
 
-        Label lblAttr = new Label("Liste des attributs :");
+attributsBox = new VBox(5);  // contiendra la liste des attributs
+
+// Zone d'édition de l'attribut sélectionné
+tfEditNom = new TextField();
+tfEditNom.setPromptText("Nom de l'attribut");
+
+
+rbEditPK = new RadioButton("PK");
+rbEditFK = new RadioButton("FK");
+rbEditSimple = new RadioButton("Neutre");
+ToggleGroup tgEdit = new ToggleGroup();
+rbEditSimple.setToggleGroup(tgEdit);
+rbEditPK.setToggleGroup(tgEdit);
+rbEditFK.setToggleGroup(tgEdit);
+
+btnAppliquerModif = new Button("Appliquer");
+
+VBox editBox = new VBox(5, new Label("Modifier l'attribut :"), tfEditNom, rbEditPK, rbEditFK, rbEditSimple, btnAppliquerModif);
+
+
+
+
+        Label lblAttr = new Label("Ajouter Attribut :");
         tfAttrNom = new TextField();
         tfAttrNom.setPromptText("Nom de l'attribut");
 
-        cbAttrType = new ComboBox<>();
-        cbAttrType.getItems().addAll("texte", "int", "float", "bool", "date");
-        cbAttrType.setPromptText("Type");
+        
 
         tgCle = new ToggleGroup();
         rbPK = new RadioButton("PK");
@@ -104,7 +137,7 @@ this.getChildren().add(infoBloc);
         rbPK.setToggleGroup(tgCle);
         rbFK.setToggleGroup(tgCle);
 
-        HBox attrInput = new HBox(5, tfAttrNom, cbAttrType, rbPK, rbFK);
+        HBox attrInput = new HBox(5, tfAttrNom,  rbPK, rbFK);
         attrInput.setSpacing(10);
 
         btnAjoutAttr = new Button("Ajouter attribut");
@@ -114,53 +147,18 @@ this.getChildren().add(infoBloc);
 
         cbLien = new ComboBox<>();
         cbLien.setPromptText("Sélectionner entité");
+        
+        // --- Zone 3 : Liste des relations de l'entité ---
+Label lblZone3 = new Label("Relations de l'entité :");
+lblZone3.setStyle("-fx-font-weight: bold; -fx-background-color: #e6e6e6; -fx-padding: 5; -fx-font-size: 12px;");
 
-        // Champs pour la cardinalité
-        tfCardSource = new TextField();
-        tfCardSource.setPromptText("Card. source [x,x]");
+relationBox = new VBox(5);
+relationBox.setPadding(new Insets(5));
+relationBox.setStyle("-fx-background-color: #f9f9f9; -fx-border-color: #ccc; -fx-border-radius: 5;");
 
-        tfCardCible = new TextField();
-        tfCardCible.setPromptText("Card. cible [x,x]");
+        
 
-        btnCreerLien = new Button();
-        btnCreerLien.setOnAction(e -> {
-            String cibleNom = cbLien.getValue();
-            if (cibleNom != null && entiteCourante != null) {
-                Map<String, Object> cible = zone.getEntiteParNom(cibleNom);
-                if (cible != null) {
-                    String typeLien = zone.isUML() ? "Héritage" : "Relation";
-
-                    // Insertion en base via RelationDAO
-                    try {
-                        int entiteSourceId = (int) entiteCourante.get("id");
-                        int entiteCibleId = (int) cible.get("id");
-                        String typeSchema = (String) entiteCourante.get("type_schema");
-
-                        String cardSource = tfCardSource.getText().trim();
-                        String cardCible = tfCardCible.getText().trim();
-
-                        RelationDAO relationDAO = new RelationDAO();
-                        int relationId = relationDAO.insertRelation(
-                                typeLien,
-                                entiteSourceId,
-                                entiteCibleId,
-                                cardSource,
-                                cardCible,
-                                typeSchema
-                        );
-
-                        logDAO.insertLog(userId, "Relation créée en BDD avec ID = " + relationId, "INFO");
-                        zone.creerLienEntreEntites(entiteCourante, cible, typeLien);
-
-                    } catch (Exception ex) {
-                        logDAO.insertLog(userId, "Erreur lors de la création de la relation : " + ex.getMessage(), "SEVERE");
-                    }
-                }
-            }
-        });
-
-        HBox lienBox = new HBox(5, cbLien, btnCreerLien);
-        VBox cardBox = new VBox(5, new Label("Cardinalités :"), tfCardSource, tfCardCible);
+       
         
         
 
@@ -179,14 +177,13 @@ btnSupprimerBloc.setOnAction(e -> {
         attrBox.getChildren().clear();
         rbPK.setSelected(false);
         rbFK.setSelected(false);
-        tfCardSource.clear();
-        tfCardCible.clear();
+        
 
         // Réinitialisation des labels Info Bloc
         lblNomBloc.setText("Nom du bloc : ");
         lblPK.setText("Clé primaire : ");
         lblFK.setText("Clé étrangère : ");
-        lblRelation.setText("Relation : ");
+      
     }
 });
 
@@ -194,8 +191,58 @@ btnSupprimerBloc.setOnAction(e -> {
 
 
         // Ajout des éléments dans l'ordre, avec Nom relation avant la liste des attributs
-        this.getChildren().addAll(lblNom, tfNom, lblNomRelation, tfNomRelation, lblAttr, attrInput, btnAjoutAttr, attrBox, cardBox, lienBox, btnSupprimerBloc);
+        this.getChildren().addAll(lblNom, tfNom, lblNomRelation, tfNomRelation, lblZone2, attributsBox, editBox, lblAttr, attrInput, btnAjoutAttr, lblZone3, relationBox, btnSupprimerBloc);
     }
+    
+    private void afficherRelations(int entiteSourceId) {
+    relationBox.getChildren().clear();
+
+    List<Map<String, Object>> relations = relationDAO.getAllRelations();
+    for (Map<String, Object> rel : relations) {
+        int relId = (int) rel.get("id");
+        int srcId = (int) rel.get("entite_source_id");
+
+        if (srcId != entiteSourceId) continue;
+
+        String nom = (String) rel.get("nom");
+        String srcCard = (String) rel.get("cardinalite_source");
+        String dstCard = (String) rel.get("cardinalite_cible");
+
+        Label lblNomRel = new Label("Relation : " + nom);
+        lblNomRel.setStyle("-fx-font-weight: bold;");
+
+        TextField tfSrc = new TextField(srcCard);
+        tfSrc.setPrefWidth(50);
+
+        TextField tfDst = new TextField(dstCard);
+        tfDst.setPrefWidth(50);
+
+        Button btnSave = new Button("✔");
+        btnSave.setOnAction(e -> {
+            String newSrc = tfSrc.getText().trim();
+            String newDst = tfDst.getText().trim();
+            relationDAO.updateRelation(relId, nom, newSrc, newDst);
+            
+        });
+
+        Button btnDel = new Button("✘");
+        btnDel.setOnAction(e -> {
+            relationDAO.supprimerRelation(relId);
+            
+            afficherRelations(entiteSourceId);
+        });
+
+        HBox cardBox = new HBox(5, new Label("Source:"), tfSrc, new Label("Cible:"), tfDst);
+        HBox actionBox = new HBox(5, btnSave, btnDel);
+
+        VBox relationBloc = new VBox(5, lblNomRel, cardBox, actionBox);
+        relationBloc.setPadding(new Insets(5));
+        relationBloc.setStyle("-fx-background-color: #f1f1f1; -fx-border-color: #ccc; -fx-border-radius: 5;");
+
+        relationBox.getChildren().add(relationBloc);
+    }
+}
+
 
     public void remplirPanneau(Map<String, Object> entite) {
         this.entiteCourante = entite;
@@ -221,9 +268,7 @@ lblPK.setText("Clé primaire : " + (pk.isEmpty() ? "Aucune" : pk));
 lblFK.setText("Clé étrangère : " + (fk.isEmpty() ? "Aucune" : fk));
 
 
-// Nom relation
-String relationNom = (String) entite.getOrDefault("nom_relation", "");
-lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relationNom));
+
 
 
         tfNom.setText((String) entite.get("nom"));
@@ -233,8 +278,7 @@ lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relation
 
         attrBox.getChildren().clear();
 
-        tfCardSource.clear();
-        tfCardCible.clear();
+        
 
         // Récupérer cardinalités depuis la BDD si relation existe
         if (entiteCourante.containsKey("id")) {
@@ -242,48 +286,74 @@ lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relation
             RelationDAO relationDAO = new RelationDAO();
             Map<String, Object> relation = relationDAO.getRelationBySourceId(entiteSourceId);
 
-            if (relation != null) {
-                tfCardSource.setText((String) relation.get("cardinalite_source"));
-                tfCardCible.setText((String) relation.get("cardinalite_cible"));
-            }
+            
         }
 
-        attrBox.getChildren().clear();
-        if (attributs != null) {
-            for (Map<String, Object> attr : attributs) {
-                String prefix = "";
-                if ((boolean) attr.getOrDefault("cle_primaire", false)) {
-                    prefix += "PK ";
-                }
-                if ((boolean) attr.getOrDefault("cle_etrangere", false)) {
-                    prefix += "FK ";
-                }
-                String type = (String) attr.getOrDefault("type", "");
-                Label lbl = new Label(prefix + attr.get("nom") + (type.isEmpty() ? "" : " : " + type));
-
-                Button btnSuppr = new Button("X");
-                btnSuppr.setOnAction(e -> {
-                    attributs.remove(attr);
-                    zone.mettreAJourEntite(entiteCourante);
-                    remplirPanneau(entiteCourante);
-                });
-
-                HBox hbox = new HBox(5, lbl, btnSuppr);
-                attrBox.getChildren().add(hbox);
-            }
-        }
+        
 
         List<String> autresEntites = zone.getNomsEntitesExcluant(entite);
         cbLien.setItems(FXCollections.observableArrayList(autresEntites));
 
-        if (zone.isUML()) {
-            btnCreerLien.setText("Créer Héritage");
-            cbLien.setPromptText("Héritage vers...");
-        } else {
-            btnCreerLien.setText("Créer Relation");
-            cbLien.setPromptText("Relation vers...");
+        
+        mettreAJourAttributs();
+        // Afficher les relations pour l'entité sélectionnée
+if (entiteCourante.containsKey("id")) {
+    int entiteSourceId = (int) entiteCourante.get("id");
+    afficherRelations(entiteSourceId);
+}
+    }
+    
+    private void mettreAJourAttributs() {
+    attributsBox.getChildren().clear();
+    List<Map<String, Object>> attributs = (List<Map<String, Object>>) entiteCourante.get("attributs");
+    if (attributs != null) {
+        for (Map<String, Object> attr : attributs) {
+            Label lbl = new Label(attr.get("nom") + " : " +
+                ((boolean) attr.getOrDefault("cle_primaire", false) ? " PK" : "") +
+                ((boolean) attr.getOrDefault("cle_etrangere", false) ? " FK" : "")
+            );
+
+            Button btnEdit = new Button("Modifier");
+            Button btnSuppr = new Button("Supprimer");
+
+            HBox hbox = new HBox(5, lbl, btnEdit, btnSuppr);
+            attributsBox.getChildren().add(hbox);
+
+            // Action Modifier
+            btnEdit.setOnAction(e -> {
+                tfEditNom.setText((String) attr.get("nom"));
+         
+                rbEditPK.setSelected((boolean) attr.getOrDefault("cle_primaire", false));
+                rbEditFK.setSelected((boolean) attr.getOrDefault("cle_etrangere", false));
+
+                btnAppliquerModif.setOnAction(ev -> {
+                    attr.put("nom", tfEditNom.getText().trim());
+                    if (rbEditPK.isSelected()) {
+        attr.put("cle_primaire", true);
+        attr.put("cle_etrangere", false);
+    } else if (rbEditFK.isSelected()) {
+        attr.put("cle_primaire", false);
+        attr.put("cle_etrangere", true);
+    } else if (rbEditSimple.isSelected()) {
+        attr.put("cle_primaire", false);
+        attr.put("cle_etrangere", false);
+    }
+
+                    zone.mettreAJourEntite(entiteCourante);
+                    mettreAJourAttributs(); // rafraîchir la liste
+                });
+            });
+
+            // Action Supprimer
+            btnSuppr.setOnAction(e -> {
+                attributs.remove(attr);
+                zone.mettreAJourEntite(entiteCourante);
+                mettreAJourAttributs();
+            });
         }
     }
+}
+
 
     private void ajouterAttribut() {
         if (entiteCourante == null) {
@@ -291,15 +361,11 @@ lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relation
         }
 
         String nom = tfAttrNom.getText().trim();
-        String type = cbAttrType.getValue();
-
-        if (nom.isEmpty() || type == null) {
-            return;
-        }
+        
 
         Map<String, Object> attribut = new java.util.HashMap<>();
         attribut.put("nom", nom);
-        attribut.put("type", type);
+        
         attribut.put("cle_primaire", rbPK.isSelected());
         attribut.put("cle_etrangere", rbFK.isSelected());
 
@@ -307,11 +373,9 @@ lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relation
         attributs.add(attribut);
 
         zone.mettreAJourEntite(entiteCourante);
-        remplirPanneau(entiteCourante);
+         mettreAJourAttributs();
 
         tfAttrNom.clear();
-        cbAttrType.setValue(null);
-        cbAttrType.setPromptText("Type");
         rbPK.setSelected(false);
         rbFK.setSelected(false);
     }

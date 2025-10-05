@@ -134,6 +134,27 @@ public class RelationDAO {
             logDAO.insertLog(userId, "Erreur lors de la suppression des relations par schéma : " + e.getMessage(), "SEVERE");
         }
     }
+    
+    //--AjoutLyna
+
+/** Met à jour seulement les cardinalités d'une relation */
+public void updateCardinalites(int relationId, String cardSource, String cardCible) {
+    String SQL = "UPDATE relations SET cardinalite_source = ?, cardinalite_cible = ? WHERE id = ?";
+    try (Connection conn = ConnexionBdd.getConnection();
+         PreparedStatement pstmt = conn.prepareStatement(SQL)) {
+        pstmt.setString(1, cardSource);
+        pstmt.setString(2, cardCible);
+        pstmt.setInt(3, relationId);
+        int affectedRows = pstmt.executeUpdate();
+        if (affectedRows > 0) {
+            logDAO.insertLog(userId, "Mise à jour des cardinalités de la relation ID : " + relationId, "INFO");
+        }
+    } catch (SQLException e) {
+        logDAO.insertLog(userId, "Erreur lors de la mise à jour des cardinalités : " + e.getMessage(), "SEVERE");
+    }
+}
+//
+
 
     /**
      * Récupère une relation à partir de l'ID de l'entité source.

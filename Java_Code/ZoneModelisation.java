@@ -51,6 +51,9 @@ public class ZoneModelisation extends Pane {
     private Visuel visuel;
     private List<RelationERD> relationsERD = new ArrayList<>();
     private LogDAO logDAO = new LogDAO();
+    
+;
+
     String userId = UserSession.getInstance().getUserId();
 
     public interface SelectionListener {
@@ -138,7 +141,8 @@ public class ZoneModelisation extends Pane {
             gc.strokeLine(0, y, width, y);
         }
     }
-
+    
+   
     public void setSelectionListener(SelectionListener listener) {
         this.selectionListener = listener;
     }

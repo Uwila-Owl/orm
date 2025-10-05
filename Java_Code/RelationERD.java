@@ -25,6 +25,7 @@ public class RelationERD {
 
     private String cardinaliteSource;
     private String cardinaliteCible;
+    private int id;
 
     public RelationERD(Map<String, Object> entiteSource,
             Map<String, Object> entiteCible,
@@ -69,7 +70,15 @@ public class RelationERD {
         // Mise à jour initiale des positions
         mettreAJourPositions();
     }
-
+    
+    
+//--AjoutLyna
+// Getter pour l'id
+    public int getId() {
+        return this.id;
+    }
+    //
+    
     /**
      * Met à jour toutes les positions (lignes, ellipse, cardinalités)
      */
