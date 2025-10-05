@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class RelationDAO {
@@ -134,27 +133,38 @@ public class RelationDAO {
             logDAO.insertLog(userId, "Erreur lors de la suppression des relations par schéma : " + e.getMessage(), "SEVERE");
         }
     }
-    
-    //--AjoutLyna
 
-/** Met à jour seulement les cardinalités d'une relation */
-public void updateCardinalites(int relationId, String cardSource, String cardCible) {
-    String SQL = "UPDATE relations SET cardinalite_source = ?, cardinalite_cible = ? WHERE id = ?";
-    try (Connection conn = ConnexionBdd.getConnection();
-         PreparedStatement pstmt = conn.prepareStatement(SQL)) {
-        pstmt.setString(1, cardSource);
-        pstmt.setString(2, cardCible);
-        pstmt.setInt(3, relationId);
-        int affectedRows = pstmt.executeUpdate();
-        if (affectedRows > 0) {
-            logDAO.insertLog(userId, "Mise à jour des cardinalités de la relation ID : " + relationId, "INFO");
+    public void supprimerRelationsEntite(int entiteId) {
+        String SQL = "DELETE FROM relations WHERE entite_source_id = ? OR entite_cible_id = ?";
+        try (Connection conn = ConnexionBdd.getConnection(); PreparedStatement pstmt = conn.prepareStatement(SQL)) {
+            pstmt.setInt(1, entiteId);
+            pstmt.setInt(2, entiteId);
+            int affectedRows = pstmt.executeUpdate();
+            logDAO.insertLog(userId, "Suppression de " + affectedRows + " relation(s) pour l'entité ID : " + entiteId, "INFO");
+        } catch (SQLException e) {
+            logDAO.insertLog(userId, "Erreur lors de la suppression des relations par entité : " + e.getMessage(), "SEVERE");
         }
-    } catch (SQLException e) {
-        logDAO.insertLog(userId, "Erreur lors de la mise à jour des cardinalités : " + e.getMessage(), "SEVERE");
     }
-}
-//
 
+    //--AjoutLyna
+    /**
+     * Met à jour seulement les cardinalités d'une relation
+     */
+    public void updateCardinalites(int relationId, String cardSource, String cardCible) {
+        String SQL = "UPDATE relations SET cardinalite_source = ?, cardinalite_cible = ? WHERE id = ?";
+        try (Connection conn = ConnexionBdd.getConnection(); PreparedStatement pstmt = conn.prepareStatement(SQL)) {
+            pstmt.setString(1, cardSource);
+            pstmt.setString(2, cardCible);
+            pstmt.setInt(3, relationId);
+            int affectedRows = pstmt.executeUpdate();
+            if (affectedRows > 0) {
+                logDAO.insertLog(userId, "Mise à jour des cardinalités de la relation ID : " + relationId, "INFO");
+            }
+        } catch (SQLException e) {
+            logDAO.insertLog(userId, "Erreur lors de la mise à jour des cardinalités : " + e.getMessage(), "SEVERE");
+        }
+    }
+//
 
     /**
      * Récupère une relation à partir de l'ID de l'entité source.

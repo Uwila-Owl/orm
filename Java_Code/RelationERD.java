@@ -26,17 +26,16 @@ public class RelationERD {
     private String cardinaliteSource;
     private String cardinaliteCible;
     private int id;
+    private String relationNom;
 
-    public RelationERD(Map<String, Object> entiteSource,
-            Map<String, Object> entiteCible,
-            Map<Integer, Group> entiteToGroup,
-            String relationNom,
-            String cardSource,
-            String cardCible) {
-
+    public RelationERD(int id, Map<String, Object> entiteSource, Map<String, Object> entiteCible,
+            Map<Integer, Group> entiteToGroup, String relationNom,
+            String cardSource, String cardCible) {
+        this.id = id;
         this.entiteSource = entiteSource;
         this.entiteCible = entiteCible;
         this.entiteToGroup = entiteToGroup;
+        this.relationNom = relationNom;
         this.cardinaliteSource = cardSource;
         this.cardinaliteCible = cardCible;
 
@@ -70,15 +69,18 @@ public class RelationERD {
         // Mise à jour initiale des positions
         mettreAJourPositions();
     }
-    
-    
+
+    public String getRelationNom() {
+        return this.relationNom;
+    }
+
 //--AjoutLyna
 // Getter pour l'id
     public int getId() {
         return this.id;
     }
     //
-    
+
     /**
      * Met à jour toutes les positions (lignes, ellipse, cardinalités)
      */

@@ -1,3 +1,4 @@
+
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.input.MouseEvent;
@@ -51,8 +52,6 @@ public class ZoneModelisation extends Pane {
     private Visuel visuel;
     private List<RelationERD> relationsERD = new ArrayList<>();
     private LogDAO logDAO = new LogDAO();
-    
-
 
     String userId = UserSession.getInstance().getUserId();
 
@@ -141,8 +140,7 @@ public class ZoneModelisation extends Pane {
             gc.strokeLine(0, y, width, y);
         }
     }
-    
-   
+
     public void setSelectionListener(SelectionListener listener) {
         this.selectionListener = listener;
     }
@@ -326,7 +324,6 @@ public class ZoneModelisation extends Pane {
         System.out.println("CardSource : '" + cardSource + "', CardCible : '" + cardCible + "', RelationNom : '" + relationNom + "'");
         System.out.println("Taille du contentGroup avant traitement : " + contentGroup.getChildren().size());
 
-        // ====== Décision basée sur typeLien (plus robuste que isUML) ======
         if (typeLien.equals("Héritage")) {
             // Bloc UML (héritage ou association UML)
             System.out.println(">>> Entrée dans bloc UML (typeLien='Héritage') <<<");
@@ -364,12 +361,26 @@ public class ZoneModelisation extends Pane {
                 return;
             }
 
+            int relationDbId = -1;
+            try {
+                RelationDAO relationDAO = new RelationDAO();
+                relationDbId = relationDAO.insertRelation(relationNom, (Integer) source.get("id"), (Integer) cible.get("id"), cardSource, cardCible, "ERD");
+                if (relationDbId == -1) {
+                    System.err.println("ERREUR : Échec de l'insertion de la relation ERD en base de données.");
+                    return; // Ne pas créer la relation visuelle si l'insertion BDD échoue
+                }
+            } catch (Exception e) {
+                System.err.println("ERREUR lors de l'insertion de la relation ERD en base de données : " + e.getMessage());
+                e.printStackTrace();
+                return;
+            }
+
             // Étape 2 : Création RelationERD
             RelationERD relationERD = null;
             try {
                 System.out.println("Création de RelationERD...");
-                relationERD = new RelationERD(source, cible, entiteToGroup, relationNom, cardSource, cardCible);
-                System.out.println("RelationERD créée.");
+                relationERD = new RelationERD(relationDbId, source, cible, entiteToGroup, relationNom, cardSource, cardCible);
+                System.out.println("RelationERD créée." + relationDbId);
             } catch (Exception e) {
                 System.err.println("ERREUR création RelationERD : " + e.getMessage());
                 e.printStackTrace();
@@ -852,13 +863,31 @@ public class ZoneModelisation extends Pane {
             if ((int) src.get("id") == entiteId || (int) dst.get("id") == entiteId) {
                 contentGroup.getChildren().remove(la.ligne);
                 contentGroup.getChildren().removeAll(la.cardinaliteSourceText, la.cardinaliteCibleText);
-                if (la.relationGroup != null) {
+                if (la.relationGroup != null) { // Pour les cas où relationGroup est utilisé (ERD)
                     contentGroup.getChildren().remove(la.relationGroup);
                 }
                 return true;
             }
             return false;
         });
+
+        relationsERD.removeIf(relERD -> {
+            Map<String, Object> src = relERD.getEntiteSource();
+            Map<String, Object> dst = relERD.getEntiteCible();
+            if ((int) src.get("id") == entiteId || (int) dst.get("id") == entiteId) {
+                // Supprimer tous les composants visuels de la relation ERD
+                contentGroup.getChildren().remove(relERD.getLigne1());
+                contentGroup.getChildren().remove(relERD.getLigne2());
+                contentGroup.getChildren().remove(relERD.getRelationGroup()); // Ellipse et son texte
+                contentGroup.getChildren().remove(relERD.getCardinaliteSourceText());
+                contentGroup.getChildren().remove(relERD.getCardinaliteCibleText());
+                return true;
+            }
+            return false;
+        });
+
+        entiteDAO.supprimerEntite(entiteId);
+        logDAO.insertLog(userId, "Entité supprimée (ID=" + entiteId + ")", "INFO");
 
     }
 
@@ -875,14 +904,14 @@ public class ZoneModelisation extends Pane {
         loadedSchemaId = -1;
         schemaId = -1;
     }
-    
+
     /**
      * Vérifie si le diagramme contient des données
      */
     public boolean isEmpty() {
         return entiteById.isEmpty() && relationsERD.isEmpty() && lignesAssociees.isEmpty();
     }
-    
+
     /**
      * Récupère toutes les données du diagramme pour l'export
      */
@@ -895,38 +924,38 @@ public class ZoneModelisation extends Pane {
         data.put("isUML", isUML);
         data.put("loadedSchemaId", loadedSchemaId);
         data.put("dateExport", new Date());
-        
+
         return data;
     }
-    
+
     public void loadDiagramData(Map<String, Object> data) {
         // Confirmer avant de perdre les modifications
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("Chargement de diagramme");
         alert.setHeaderText("Vous êtes sur le point de charger un nouveau diagramme");
         alert.setContentText("Les modifications non sauvegardées seront perdues. Continuer ?");
-        
+
         Optional<ButtonType> result = alert.showAndWait();
         if (result.isEmpty() || result.get() != ButtonType.OK) {
             return;
         }
-        
+
         // Nettoyer l'état actuel
         contentGroup.getChildren().clear();
         entiteToGroup.clear();
         entiteById.clear();
         lignesAssociees.clear();
         relationsERD.clear();
-        
+
         // Charger les nouvelles données
         List<Map<String, Object>> entites = (List<Map<String, Object>>) data.get("entites");
-        
+
         if (entites != null) {
             for (Map<String, Object> entite : entites) {
                 ajouterEntite(entite);
             }
         }
-        
+
         // Charger les relations
         List<Map<String, Object>> relations = (List<Map<String, Object>>) data.get("relations");
         if (relations != null && !relations.isEmpty()) {
@@ -935,15 +964,15 @@ public class ZoneModelisation extends Pane {
                     String type = (String) relation.get("type");
                     int sourceId = (int) relation.get("source_id");
                     int cibleId = (int) relation.get("cible_id");
-                    
+
                     Map<String, Object> source = entiteById.get(sourceId);
                     Map<String, Object> cible = entiteById.get(cibleId);
-                    
+
                     if (source != null && cible != null) {
                         String cardSource = (String) relation.get("cardinalite_source");
                         String cardCible = (String) relation.get("cardinalite_cible");
                         String relationNom = "Relation importée";
-                        
+
                         creerLienEntreEntitesAvecCardinalites(source, cible, type, cardSource, cardCible, relationNom);
                     }
                 } catch (Exception e) {
@@ -951,13 +980,13 @@ public class ZoneModelisation extends Pane {
                 }
             }
         }
-        
+
         // Mettre à jour le type de schéma si nécessaire
         Boolean isUMLData = (Boolean) data.get("isUML");
         if (isUMLData != null && isUMLData != this.isUML) {
             setTypeSchema(isUMLData);
         }
-        
+
         logDAO.insertLog(userId, "Diagramme chargé depuis fichier", "INFO");
     }
     // ERIC: AJOUT DES MÉTHODES MANQUANTES POUR NAVIGATIONMENU - FIN
