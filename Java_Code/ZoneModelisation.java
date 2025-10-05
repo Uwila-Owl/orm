@@ -52,7 +52,7 @@ public class ZoneModelisation extends Pane {
     private List<RelationERD> relationsERD = new ArrayList<>();
     private LogDAO logDAO = new LogDAO();
     
-;
+
 
     String userId = UserSession.getInstance().getUserId();
 
