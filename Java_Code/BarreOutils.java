@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import javafx.scene.control.Alert.AlertType;
 import javafx.geometry.Pos;
-import java.sql.SQLException;
 
 public class BarreOutils extends VBox {
 
@@ -37,8 +36,8 @@ public class BarreOutils extends VBox {
     private ComboBox<String> cbEntiteCible;
     private Button btnCreerLien;
     // Attributs de la classe
-    private ComboBox<String> cbCardinaliteSource;
-    private ComboBox<String> cbCardinaliteCible;
+private ComboBox<String> cbCardinaliteSource;
+private ComboBox<String> cbCardinaliteCible;
 
     public BarreOutils(ZoneModelisation zoneModelisation, InterfaceGenerateurUML interfaceRef) {
         this.zoneModelisation = zoneModelisation;
@@ -87,9 +86,7 @@ public class BarreOutils extends VBox {
             if (label.equals("Héritage")) {
                 heritageContainer = container;
             }
-            if (label.equals("Opération")) {
-                operationContainer = container;
-            }
+            if (label.equals("Opération")) operationContainer = container;
 
             unitsList.getChildren().add(container);
         }
@@ -119,8 +116,7 @@ public class BarreOutils extends VBox {
                                         creerRelation(valeur);
                                     case "Héritage" ->
                                         creerHeritage(valeur);
-                                    case "Opération" ->
-                                        ajouterOperation(valeur);
+                                    case "Opération" -> ajouterOperation(valeur);
                                 }
                             }
                         }
@@ -148,22 +144,24 @@ public class BarreOutils extends VBox {
         cbCardinaliteSource.getItems().addAll("1,1", "0,1", "0,N", "1,N");
         cbCardinaliteSource.setPromptText("Cardinalité");
 
-        cbCardinaliteCible = new ComboBox<>();
+       cbCardinaliteCible = new ComboBox<>();
         cbCardinaliteCible.getItems().addAll("1,1", "0,1", "0,N", "1,N");
         cbCardinaliteCible.setPromptText("Cardinalité");
-
+        
         // --- Nom de relation (seulement en ERD) ---
-        tfNomRelation = new TextField();
-        tfNomRelation.setPromptText("Nom de la relation");
-        tfNomRelation.setMaxWidth(150);
+tfNomRelation = new TextField();
+tfNomRelation.setPromptText("Nom de la relation");
+tfNomRelation.setMaxWidth(150);
+
 
         btnCreerLien = new Button("Créer Lien");
         btnCreerLien.setOnAction(e -> {
             String sourceNom = cbEntiteSource.getValue();
             String cibleNom = cbEntiteCible.getValue();
+            
 
-            if (sourceNom == null || cibleNom == null) {
-                showAlert("Sélection invalide", "Veuillez sélectionner une entité source et une entité cible.");
+            if (sourceNom == null || cibleNom == null ) {
+                showAlert("Sélection invalide", "Veuillez sélectionner une entité source, une entité cible et les cardinalités.");
                 return;
             }
             if (sourceNom.equals(cibleNom)) {
@@ -173,82 +171,30 @@ public class BarreOutils extends VBox {
 
             Map<String, Object> source = zoneModelisation.getEntiteParNom(sourceNom);
             Map<String, Object> cible = zoneModelisation.getEntiteParNom(cibleNom);
-            if (source == null || cible == null) {
-                showAlert("Entités non trouvées", "Rechargez le mode pour actualiser les entités.");
-                return;
-            }
-
-            // Log avant détermination typeLien
-            System.out.println("btnCreerLien cliqué : isUML actuel = " + zoneModelisation.isUML() + ", BtnERD sélectionné ? " + (interfaceRef.getBtnERD() != null && interfaceRef.getBtnERD().isSelected()));
-
-            // Force switch si mismatch entre bouton et isUML (sécurité)
-            boolean btnERDSelected = interfaceRef.getBtnERD() != null && interfaceRef.getBtnERD().isSelected();
-            if (btnERDSelected && zoneModelisation.isUML()) {
-                System.out.println("Force switch à ERD (mismatch).");
-                zoneModelisation.setTypeSchema(false);
-            } else if (!btnERDSelected && !zoneModelisation.isUML()) {
-                System.out.println("Force switch à UML (mismatch).");
-                zoneModelisation.setTypeSchema(true);
-            }
-
-            // Redéterminez typeLien après force
             String typeLien = zoneModelisation.isUML() ? "Héritage" : "Relation";
-            System.out.println("typeLien déterminé : '" + typeLien + "' (isUML = " + zoneModelisation.isUML() + ")");
 
             if (relationExiste(source, cible, typeLien)) {
                 showAlert("Relation existante", "Un " + typeLien + " existe déjà entre ces deux entités.");
                 return;
             }
 
-            // --- Cas ERD ---
-            if (!zoneModelisation.isUML()) {
-                String cardSourceRaw = cbCardinaliteSource.getValue();
-                String cardCibleRaw = cbCardinaliteCible.getValue();
-                String relationNom = tfNomRelation.getText().trim();
-                if (relationNom.isEmpty()) {
-                    relationNom = "Relation";
-                }
+            // --- Cas ERD : vérifier aussi les cardinalités ---
+    if (!zoneModelisation.isUML()) {
+        String cardSource = cbCardinaliteSource.getValue();
+        String cardCible = cbCardinaliteCible.getValue();
+        String relationNom = tfNomRelation.getText().trim();
 
-                if (cardSourceRaw == null || cardCibleRaw == null) {
-                    showAlert("Sélection invalide", "Veuillez sélectionner les cardinalités pour ERD.");
-                    return;
-                }
 
-                // Mapping format cardinalités (ex. : "1,1" → "[1,1]" si attendu par ERD ; adaptez si besoin)
-                String cardSource = "[" + cardSourceRaw + "]";
-                String cardCible = "[" + cardCibleRaw + "]";
+        if (cardSource == null || cardCible == null|| relationNom.isEmpty()) {
+            showAlert("Sélection invalide", "Veuillez saisir le nom de la relation et sélectionner les cardinalités.");
+            return;
+        }
 
-                System.out.println("ERD : Appel avec cards '" + cardSource + "' / '" + cardCible + "', nom '" + relationNom + "'");
-                zoneModelisation.creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, cardSource, cardCible, relationNom);
-
-                // Sauvegarde en DB (adaptez RelationDAO si différent)
-                int sourceId = (Integer) source.get("id");
-                int cibleId = (Integer) cible.get("id");
-                RelationDAO relationDAO = new RelationDAO();
-                relationDAO.insertRelation(relationNom, sourceId, cibleId, cardSource, cardCible, "ERD");
-                logDAO.insertLog(userId, "Relation ERD créée : " + relationNom, "INFO");
-
-            } else {
-                // --- Cas UML ---
-                System.out.println("UML : Appel avec defaults '[ ]'");
-                zoneModelisation.creerLienEntreEntites(source, cible, typeLien);
-
-                // Sauvegarde en DB pour UML
-                int sourceId = (Integer) source.get("id");
-                int cibleId = (Integer) cible.get("id");
-                RelationDAO relationDAO = new RelationDAO();
-                relationDAO.insertRelation("Héritage", sourceId, cibleId, "[ ]", "[ ]", "UML");
-                logDAO.insertLog(userId, "Héritage UML créé", "INFO");
-            }
-
-            // Clear champs après succès
-            tfNomRelation.clear();
-            cbCardinaliteSource.setValue(null);
-            cbCardinaliteCible.setValue(null);
-            cbEntiteSource.setValue(null);
-            cbEntiteCible.setValue(null);
-
-        });
+        zoneModelisation.creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, cardSource, cardCible, relationNom);
+    } else {
+        zoneModelisation.creerLienEntreEntites(source, cible, typeLien);
+    }
+});
 
 // HBox pour source + cardinalité
         HBox hboxSource = new HBox(5, cbEntiteSource, cbCardinaliteSource);
@@ -259,7 +205,7 @@ public class BarreOutils extends VBox {
         hboxCible.setAlignment(Pos.CENTER_LEFT);
 
 // VBox lien
-        VBox vboxLien = new VBox(10, lblLien, hboxSource, hboxCible, tfNomRelation, btnCreerLien);
+        VBox vboxLien = new VBox(10, lblLien, hboxSource,  hboxCible, tfNomRelation, btnCreerLien);
         vboxLien.setPadding(new Insets(10, 0, 0, 0));
         vboxLien.setAlignment(Pos.TOP_CENTER);
 
@@ -358,7 +304,7 @@ public class BarreOutils extends VBox {
 
                 dbManager.insertEntity(entite, attributs, "UML");
             } else {
-                logDAO.insertLog(userId, "L'attribut '" + nomAttribut + "' existe déjà pour cette entité.", "INFO");
+                 logDAO.insertLog(userId, "L'attribut '" + nomAttribut + "' existe déjà pour cette entité.", "INFO");
             }
         } else {
             logDAO.insertLog(userId, "Aucune entité sélectionnée. Veuillez d'abord créer une entité.", "INFO");
@@ -426,37 +372,37 @@ public class BarreOutils extends VBox {
     private void creerHeritage(String nomEntiteMere) {
         /* ... */
     }
-
     private void ajouterOperation(String nomOperation) {
-        if (entiteCourante.containsKey("entite")) {
-            Map<String, Object> entite = entiteCourante.get("entite");
-            List<Map<String, Object>> operations = (List<Map<String, Object>>) entite.get("operations");
+    if (entiteCourante.containsKey("entite")) {
+        Map<String, Object> entite = entiteCourante.get("entite");
+        List<Map<String, Object>> operations = (List<Map<String, Object>>) entite.get("operations");
 
-            if (operations == null) {
-                operations = new ArrayList<>();
-                entite.put("operations", operations);
-            }
-
-            boolean operationExiste = operations.stream()
-                    .anyMatch(op -> op.get("nom").equals(nomOperation));
-
-            if (!operationExiste) {
-                Map<String, Object> operation = new HashMap<>();
-                operation.put("nom", nomOperation);
-                operation.put("typeRetour", "int"); // valeur par défaut
-                operation.put("parametres", new ArrayList<String>());
-
-                operations.add(operation);
-
-                zoneModelisation.mettreAJourEntite(entite);
-                dbManager.insertEntity(entite, (List<Map<String, Object>>) entite.get("attributs"), "UML");
-            } else {
-                System.out.println("L’opération '" + nomOperation + "' existe déjà pour cette entité.");
-            }
-        } else {
-            System.out.println("Aucune entité sélectionnée. Veuillez d'abord créer une entité.");
+        if (operations == null) {
+            operations = new ArrayList<>();
+            entite.put("operations", operations);
         }
+
+        boolean operationExiste = operations.stream()
+                .anyMatch(op -> op.get("nom").equals(nomOperation));
+
+        if (!operationExiste) {
+            Map<String, Object> operation = new HashMap<>();
+            operation.put("nom", nomOperation);
+            operation.put("typeRetour", "int"); // valeur par défaut
+            operation.put("parametres", new ArrayList<String>());
+
+            operations.add(operation);
+
+            zoneModelisation.mettreAJourEntite(entite);
+            dbManager.insertEntity(entite, (List<Map<String, Object>>) entite.get("attributs"), "UML");
+        } else {
+            System.out.println("L’opération '" + nomOperation + "' existe déjà pour cette entité.");
+        }
+    } else {
+        System.out.println("Aucune entité sélectionnée. Veuillez d'abord créer une entité.");
     }
+}
+
 
     private void updateToolbarForEntity(Map<String, Object> entite) {
         entiteCourante.put("entite", entite);
@@ -480,24 +426,10 @@ public class BarreOutils extends VBox {
 
     private void setupVisibilityListeners() {
         if (interfaceRef.getBtnUML() != null) {
-            interfaceRef.getBtnUML().selectedProperty().addListener((obs, oldVal, newVal) -> {
-                if (newVal) { // Sélectionné
-                    zoneModelisation.setTypeSchema(true); // Switch à UML
-                    System.out.println("Bouton UML sélectionné : setTypeSchema(true), isUML = " + zoneModelisation.isUML());
-                    actualiserComboBoxEntites(); // Recharge ComboBox avec entités UML
-                }
-                updateVisibility();
-            });
+            interfaceRef.getBtnUML().selectedProperty().addListener((obs, oldVal, newVal) -> updateVisibility());
         }
         if (interfaceRef.getBtnERD() != null) {
-            interfaceRef.getBtnERD().selectedProperty().addListener((obs, oldVal, newVal) -> {
-                if (newVal) { // Sélectionné
-                    zoneModelisation.setTypeSchema(false); // Switch à ERD
-                    System.out.println("Bouton ERD sélectionné : setTypeSchema(false), isUML = " + zoneModelisation.isUML());
-                    actualiserComboBoxEntites(); // Recharge ComboBox avec entités ERD
-                }
-                updateVisibility();
-            });
+            interfaceRef.getBtnERD().selectedProperty().addListener((obs, oldVal, newVal) -> updateVisibility());
         }
     }
 
@@ -510,35 +442,34 @@ public class BarreOutils extends VBox {
             boolean isUMLSelected = interfaceRef.getBtnUML() != null && interfaceRef.getBtnUML().isSelected();
             heritageContainer.setVisible(isUMLSelected);
             heritageContainer.setManaged(isUMLSelected);
+            
+             // ➝ Affichage des opérations UNIQUEMENT en UML
+        operationContainer.setVisible(isUMLSelected);
+        operationContainer.setManaged(isUMLSelected);
+        operationContainer.setManaged(isUMLSelected);
+        
+        if (tfNomRelation != null) {
+    tfNomRelation.setVisible(isERDSelected);
+    tfNomRelation.setManaged(isERDSelected);
+}
 
-            // ➝ Affichage des opérations UNIQUEMENT en UML
-            operationContainer.setVisible(isUMLSelected);
-            operationContainer.setManaged(isUMLSelected);
-            operationContainer.setManaged(isUMLSelected);
+        
+        // --- Gestion spécifique des cardinalités ---
+        if (cbCardinaliteSource != null && cbCardinaliteCible != null) {
+            cbCardinaliteSource.setVisible(isERDSelected);
+            cbCardinaliteSource.setManaged(isERDSelected);
 
-            if (tfNomRelation != null) {
-                tfNomRelation.setVisible(isERDSelected);
-                tfNomRelation.setManaged(isERDSelected);
+            cbCardinaliteCible.setVisible(isERDSelected);
+            cbCardinaliteCible.setManaged(isERDSelected);
+        }
 
-                actualiserComboBoxEntites();
-            }
-
-            // --- Gestion spécifique des cardinalités ---
-            if (cbCardinaliteSource != null && cbCardinaliteCible != null) {
-                cbCardinaliteSource.setVisible(isERDSelected);
-                cbCardinaliteSource.setManaged(isERDSelected);
-
-                cbCardinaliteCible.setVisible(isERDSelected);
-                cbCardinaliteCible.setManaged(isERDSelected);
-            }
-
-            // Le bouton "Créer Lien" reste toujours visible
-            if (btnCreerLien != null) {
-                btnCreerLien.setVisible(true);
-                btnCreerLien.setManaged(true);
-            }
+        // Le bouton "Créer Lien" reste toujours visible
+        if (btnCreerLien != null) {
+            btnCreerLien.setVisible(true);
+            btnCreerLien.setManaged(true);
         }
     }
+}
 
     private void updateListeEntites() {
         List<String> noms = zoneModelisation.getAllEntities().stream()
@@ -579,14 +510,12 @@ public class BarreOutils extends VBox {
             }
         }
 
-        if (!cbEntiteSource.getItems().isEmpty()) {
+        if (!cbEntiteSource.getItems().isEmpty()) 
             cbEntiteSource.getSelectionModel().selectFirst();
-        }
-
-        if (!cbEntiteCible.getItems().isEmpty()) {
+        
+        if (!cbEntiteCible.getItems().isEmpty()) 
             cbEntiteCible.getSelectionModel().selectFirst();
-        }
-
+        
     }
 
 }

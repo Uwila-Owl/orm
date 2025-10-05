@@ -1,4 +1,3 @@
-
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.input.MouseEvent;
@@ -25,6 +24,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+// AJOUT: Imports manquants pour les méthodes
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import java.util.Optional;
+import java.util.Date;
 
 public class ZoneModelisation extends Pane {
 
@@ -290,6 +294,7 @@ public class ZoneModelisation extends Pane {
         }
     }
 
+    // ERIC: AJOUT DE LA MÉTHODE getSchemaId() MANQUANTE
     public int getSchemaId() {
         return (loadedSchemaId != -1) ? loadedSchemaId : schemaId;
     }
@@ -687,7 +692,7 @@ public class ZoneModelisation extends Pane {
             snapActive = !snapActive;
             logDAO.insertLog(userId, "Snap magnétique " + (snapActive ? "activé" : "désactivé"), "INFO");
             event.consume(); // optionnel : empêche propagation si besoin
-            return; // on ne transmet pas à visuel car c’est une touche spécifique ici
+            return; // on ne transmet pas à visuel car c'est une touche spécifique ici
         }
         // Sinon, déléguer à visuel pour Ctrl+Z / Ctrl+Y
         visuel.toucheClavAppui(event);
@@ -853,4 +858,103 @@ public class ZoneModelisation extends Pane {
 
     }
 
+    // ERIC: AJOUT DES MÉTHODES MANQUANTES POUR NAVIGATIONMENU - DÉBUT
+    /**
+     * Réinitialise complètement le diagramme
+     */
+    public void clear() {
+        contentGroup.getChildren().clear();
+        entiteToGroup.clear();
+        entiteById.clear();
+        lignesAssociees.clear();
+        relationsERD.clear();
+        loadedSchemaId = -1;
+        schemaId = -1;
+    }
+    
+    /**
+     * Vérifie si le diagramme contient des données
+     */
+    public boolean isEmpty() {
+        return entiteById.isEmpty() && relationsERD.isEmpty() && lignesAssociees.isEmpty();
+    }
+    
+    /**
+     * Récupère toutes les données du diagramme pour l'export
+     */
+    public Map<String, Object> getDiagramData() {
+        Map<String, Object> data = new HashMap<>();
+        data.put("entites", new ArrayList<>(entiteById.values()));
+        data.put("relationsERD", new ArrayList<>(relationsERD));
+        data.put("lignesAssociees", new ArrayList<>(lignesAssociees));
+        data.put("schemaId", schemaId);
+        data.put("isUML", isUML);
+        data.put("loadedSchemaId", loadedSchemaId);
+        data.put("dateExport", new Date());
+        
+        return data;
+    }
+    
+    public void loadDiagramData(Map<String, Object> data) {
+        // Confirmer avant de perdre les modifications
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Chargement de diagramme");
+        alert.setHeaderText("Vous êtes sur le point de charger un nouveau diagramme");
+        alert.setContentText("Les modifications non sauvegardées seront perdues. Continuer ?");
+        
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isEmpty() || result.get() != ButtonType.OK) {
+            return;
+        }
+        
+        // Nettoyer l'état actuel
+        contentGroup.getChildren().clear();
+        entiteToGroup.clear();
+        entiteById.clear();
+        lignesAssociees.clear();
+        relationsERD.clear();
+        
+        // Charger les nouvelles données
+        List<Map<String, Object>> entites = (List<Map<String, Object>>) data.get("entites");
+        
+        if (entites != null) {
+            for (Map<String, Object> entite : entites) {
+                ajouterEntite(entite);
+            }
+        }
+        
+        // Charger les relations
+        List<Map<String, Object>> relations = (List<Map<String, Object>>) data.get("relations");
+        if (relations != null && !relations.isEmpty()) {
+            for (Map<String, Object> relation : relations) {
+                try {
+                    String type = (String) relation.get("type");
+                    int sourceId = (int) relation.get("source_id");
+                    int cibleId = (int) relation.get("cible_id");
+                    
+                    Map<String, Object> source = entiteById.get(sourceId);
+                    Map<String, Object> cible = entiteById.get(cibleId);
+                    
+                    if (source != null && cible != null) {
+                        String cardSource = (String) relation.get("cardinalite_source");
+                        String cardCible = (String) relation.get("cardinalite_cible");
+                        String relationNom = "Relation importée";
+                        
+                        creerLienEntreEntitesAvecCardinalites(source, cible, type, cardSource, cardCible, relationNom);
+                    }
+                } catch (Exception e) {
+                    System.err.println("Erreur lors du chargement d'une relation: " + e.getMessage());
+                }
+            }
+        }
+        
+        // Mettre à jour le type de schéma si nécessaire
+        Boolean isUMLData = (Boolean) data.get("isUML");
+        if (isUMLData != null && isUMLData != this.isUML) {
+            setTypeSchema(isUMLData);
+        }
+        
+        logDAO.insertLog(userId, "Diagramme chargé depuis fichier", "INFO");
+    }
+    // ERIC: AJOUT DES MÉTHODES MANQUANTES POUR NAVIGATIONMENU - FIN
 }

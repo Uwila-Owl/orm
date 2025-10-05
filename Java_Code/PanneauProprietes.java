@@ -22,6 +22,7 @@ public class PanneauProprietes extends VBox {
     private VBox attrBox;
     private Map<String, Object> entiteCourante;
     private ZoneModelisation zone;
+    private ComboBox<String> cbAttrType;
     private ComboBox<String> cbLien;
     private Button btnCreerLien;
     private Button btnAjoutAttr;
@@ -35,14 +36,6 @@ private Label lblNomBloc;
 private Label lblPK;
 private Label lblFK;
 private Label lblRelation;
-
-private VBox attributsBox;   // Zone 2 : liste des attributs
-private TextField tfEditNom;
-private RadioButton rbEditPK;
-private RadioButton rbEditFK;
-private RadioButton rbEditSimple;
-private Button btnAppliquerModif;
-
 
     String userId = UserSession.getInstance().getUserId();
 
@@ -96,38 +89,14 @@ this.getChildren().add(infoBloc);
                 zone.mettreAJourEntite(entiteCourante);
             }
         });
-        
-        // --- Zone 2 : Liste des attributs ---
-Label lblZone2 = new Label("Liste des attributs :");
-lblZone2.setStyle("-fx-font-weight: bold; -fx-background-color: #e6e6e6; -fx-padding: 5; -fx-font-size: 12px;");
 
-attributsBox = new VBox(5);  // contiendra la liste des attributs
-
-// Zone d'édition de l'attribut sélectionné
-tfEditNom = new TextField();
-tfEditNom.setPromptText("Nom de l'attribut");
-
-
-rbEditPK = new RadioButton("PK");
-rbEditFK = new RadioButton("FK");
-rbEditSimple = new RadioButton("Neutre");
-ToggleGroup tgEdit = new ToggleGroup();
-rbEditSimple.setToggleGroup(tgEdit);
-rbEditPK.setToggleGroup(tgEdit);
-rbEditFK.setToggleGroup(tgEdit);
-
-btnAppliquerModif = new Button("Appliquer");
-
-VBox editBox = new VBox(5, new Label("Modifier l'attribut :"), tfEditNom, rbEditPK, rbEditFK, rbEditSimple, btnAppliquerModif);
-
-
-
-
-        Label lblAttr = new Label("Ajouter Attribut :");
+        Label lblAttr = new Label("Liste des attributs :");
         tfAttrNom = new TextField();
         tfAttrNom.setPromptText("Nom de l'attribut");
 
-        
+        cbAttrType = new ComboBox<>();
+        cbAttrType.getItems().addAll("texte", "int", "float", "bool", "date");
+        cbAttrType.setPromptText("Type");
 
         tgCle = new ToggleGroup();
         rbPK = new RadioButton("PK");
@@ -135,7 +104,7 @@ VBox editBox = new VBox(5, new Label("Modifier l'attribut :"), tfEditNom, rbEdit
         rbPK.setToggleGroup(tgCle);
         rbFK.setToggleGroup(tgCle);
 
-        HBox attrInput = new HBox(5, tfAttrNom,  rbPK, rbFK);
+        HBox attrInput = new HBox(5, tfAttrNom, cbAttrType, rbPK, rbFK);
         attrInput.setSpacing(10);
 
         btnAjoutAttr = new Button("Ajouter attribut");
@@ -225,7 +194,7 @@ btnSupprimerBloc.setOnAction(e -> {
 
 
         // Ajout des éléments dans l'ordre, avec Nom relation avant la liste des attributs
-        this.getChildren().addAll(lblNom, tfNom, lblNomRelation, tfNomRelation, lblZone2, attributsBox, editBox, lblAttr, attrInput, btnAjoutAttr, cardBox, lienBox, btnSupprimerBloc);
+        this.getChildren().addAll(lblNom, tfNom, lblNomRelation, tfNomRelation, lblAttr, attrInput, btnAjoutAttr, attrBox, cardBox, lienBox, btnSupprimerBloc);
     }
 
     public void remplirPanneau(Map<String, Object> entite) {
@@ -279,7 +248,30 @@ lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relation
             }
         }
 
-        
+        attrBox.getChildren().clear();
+        if (attributs != null) {
+            for (Map<String, Object> attr : attributs) {
+                String prefix = "";
+                if ((boolean) attr.getOrDefault("cle_primaire", false)) {
+                    prefix += "PK ";
+                }
+                if ((boolean) attr.getOrDefault("cle_etrangere", false)) {
+                    prefix += "FK ";
+                }
+                String type = (String) attr.getOrDefault("type", "");
+                Label lbl = new Label(prefix + attr.get("nom") + (type.isEmpty() ? "" : " : " + type));
+
+                Button btnSuppr = new Button("X");
+                btnSuppr.setOnAction(e -> {
+                    attributs.remove(attr);
+                    zone.mettreAJourEntite(entiteCourante);
+                    remplirPanneau(entiteCourante);
+                });
+
+                HBox hbox = new HBox(5, lbl, btnSuppr);
+                attrBox.getChildren().add(hbox);
+            }
+        }
 
         List<String> autresEntites = zone.getNomsEntitesExcluant(entite);
         cbLien.setItems(FXCollections.observableArrayList(autresEntites));
@@ -291,60 +283,7 @@ lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relation
             btnCreerLien.setText("Créer Relation");
             cbLien.setPromptText("Relation vers...");
         }
-        mettreAJourAttributs();
     }
-    
-    private void mettreAJourAttributs() {
-    attributsBox.getChildren().clear();
-    List<Map<String, Object>> attributs = (List<Map<String, Object>>) entiteCourante.get("attributs");
-    if (attributs != null) {
-        for (Map<String, Object> attr : attributs) {
-            Label lbl = new Label(attr.get("nom") + " : " +
-                ((boolean) attr.getOrDefault("cle_primaire", false) ? " PK" : "") +
-                ((boolean) attr.getOrDefault("cle_etrangere", false) ? " FK" : "")
-            );
-
-            Button btnEdit = new Button("Modifier");
-            Button btnSuppr = new Button("Supprimer");
-
-            HBox hbox = new HBox(5, lbl, btnEdit, btnSuppr);
-            attributsBox.getChildren().add(hbox);
-
-            // Action Modifier
-            btnEdit.setOnAction(e -> {
-                tfEditNom.setText((String) attr.get("nom"));
-         
-                rbEditPK.setSelected((boolean) attr.getOrDefault("cle_primaire", false));
-                rbEditFK.setSelected((boolean) attr.getOrDefault("cle_etrangere", false));
-
-                btnAppliquerModif.setOnAction(ev -> {
-                    attr.put("nom", tfEditNom.getText().trim());
-                    if (rbEditPK.isSelected()) {
-        attr.put("cle_primaire", true);
-        attr.put("cle_etrangere", false);
-    } else if (rbEditFK.isSelected()) {
-        attr.put("cle_primaire", false);
-        attr.put("cle_etrangere", true);
-    } else if (rbEditSimple.isSelected()) {
-        attr.put("cle_primaire", false);
-        attr.put("cle_etrangere", false);
-    }
-
-                    zone.mettreAJourEntite(entiteCourante);
-                    mettreAJourAttributs(); // rafraîchir la liste
-                });
-            });
-
-            // Action Supprimer
-            btnSuppr.setOnAction(e -> {
-                attributs.remove(attr);
-                zone.mettreAJourEntite(entiteCourante);
-                mettreAJourAttributs();
-            });
-        }
-    }
-}
-
 
     private void ajouterAttribut() {
         if (entiteCourante == null) {
@@ -352,11 +291,15 @@ lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relation
         }
 
         String nom = tfAttrNom.getText().trim();
-        
+        String type = cbAttrType.getValue();
+
+        if (nom.isEmpty() || type == null) {
+            return;
+        }
 
         Map<String, Object> attribut = new java.util.HashMap<>();
         attribut.put("nom", nom);
-        
+        attribut.put("type", type);
         attribut.put("cle_primaire", rbPK.isSelected());
         attribut.put("cle_etrangere", rbFK.isSelected());
 
@@ -364,9 +307,11 @@ lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relation
         attributs.add(attribut);
 
         zone.mettreAJourEntite(entiteCourante);
-         mettreAJourAttributs();
+        remplirPanneau(entiteCourante);
 
         tfAttrNom.clear();
+        cbAttrType.setValue(null);
+        cbAttrType.setPromptText("Type");
         rbPK.setSelected(false);
         rbFK.setSelected(false);
     }
