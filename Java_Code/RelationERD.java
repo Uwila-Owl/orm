@@ -137,11 +137,7 @@ public class RelationERD {
         double offsetSourceX = (centreEllipseX - pointSource[0]) * 0.2; // 20% du chemin vers l'ellipse
         double offsetSourceY = (centreEllipseY - pointSource[1]) * 0.2;
 
-        // Cardinalité cible : entre l'ellipse et l'entité cible (plus près de l'entité)
-        double offsetCibleX = (pointCible[0] - centreEllipseX) * 0.2; // 20% du chemin depuis l'ellipse
-        double offsetCibleY = (pointCible[1] - centreEllipseY) * 0.2;
-
-        // Calcul de l'orientation pour décaler perpendiculairement
+        // Calcul de l'orientation de la ligne pour un décalage perpendiculaire
         double dx = centreEllipseX - pointSource[0];
         double dy = centreEllipseY - pointSource[1];
         double longueur = Math.sqrt(dx * dx + dy * dy);
@@ -152,15 +148,21 @@ public class RelationERD {
             double perpY = dx / longueur;
 
             // Décalage perpendiculaire pour éviter que le texte soit sur la ligne
-            double decalage = 15;
+            double decalage = 15; // Décalage pour la cardinalité source
 
             // Position cardinalité source
             cardinaliteSourceText.setX(pointSource[0] + offsetSourceX + perpX * decalage);
             cardinaliteSourceText.setY(pointSource[1] + offsetSourceY + perpY * decalage);
 
-            // Position cardinalité cible
-            cardinaliteCibleText.setX(pointCible[0] + offsetCibleX + perpX * decalage);
-            cardinaliteCibleText.setY(pointCible[1] + offsetCibleY + perpY * decalage);
+            // Calculer le point milieu entre l'ellipse et la cible
+            double midPointToCibleX = centreEllipseX + (pointCible[0] - centreEllipseX) * 0.5;
+            double midPointToCibleY = centreEllipseY + (pointCible[1] - centreEllipseY) * 0.5;
+
+            // Décalage pour la cardinalité cible (par exemple, vers le bas)
+            double decalageCible = 15; // Ajustez cette valeur si nécessaire
+
+            cardinaliteCibleText.setX(midPointToCibleX + perpX * decalageCible);
+            cardinaliteCibleText.setY(midPointToCibleY + perpY * decalageCible);
         }
     }
 
