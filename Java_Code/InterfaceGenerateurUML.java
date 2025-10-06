@@ -96,7 +96,7 @@ public class InterfaceGenerateurUML extends Application {
         leftBar.setMinWidth(250);
         leftBar.setPrefWidth(290);
 
-        PanneauProprietes rightPanel = new PanneauProprietes(zoneModelisation);
+        PanneauProprietes rightPanel = new PanneauProprietes(zoneModelisation, this);
         rightPanel.setMinWidth(250);
         rightPanel.setPrefWidth(290);
 
