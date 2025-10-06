@@ -21,6 +21,7 @@ public class PanneauProprietes extends VBox {
     private Map<String, Object> entiteCourante;
     private ZoneModelisation zone;
     private ComboBox<String> cbLien;
+    private InterfaceGenerateurUML interfaceRef;
    
     private Button btnAjoutAttr;
     private RadioButton rbPK, rbFK;
@@ -40,7 +41,9 @@ private RadioButton rbEditPK;
 private RadioButton rbEditFK;
 private RadioButton rbEditSimple;
 private Button btnAppliquerModif;
+private VBox editBox;
 
+private Label lblZone3;
 // Zone 3 : liste des relations
 private VBox relationBox; // contiendra les relations et leurs boutons
 private RelationDAO relationDAO = new RelationDAO(); // DAO pour manipuler les relations
@@ -120,7 +123,10 @@ rbEditFK.setToggleGroup(tgEdit);
 
 btnAppliquerModif = new Button("Appliquer");
 
-VBox editBox = new VBox(5, new Label("Modifier l'attribut :"), tfEditNom, rbEditPK, rbEditFK, rbEditSimple, btnAppliquerModif);
+editBox = new VBox(5, new Label("Modifier l'attribut :"), tfEditNom, rbEditPK, rbEditFK, rbEditSimple, btnAppliquerModif);
+
+editBox.setVisible(false); // caché par défaut
+editBox.setManaged(false);
 
 
 
@@ -149,7 +155,7 @@ VBox editBox = new VBox(5, new Label("Modifier l'attribut :"), tfEditNom, rbEdit
         cbLien.setPromptText("Sélectionner entité");
         
         // --- Zone 3 : Liste des relations de l'entité ---
-Label lblZone3 = new Label("Relations de l'entité :");
+lblZone3 = new Label("Relations de l'entité :");
 lblZone3.setStyle("-fx-font-weight: bold; -fx-background-color: #e6e6e6; -fx-padding: 5; -fx-font-size: 12px;");
 
 relationBox = new VBox(5);
@@ -194,6 +200,9 @@ btnSupprimerBloc.setOnAction(e -> {
         this.getChildren().addAll(lblNom, tfNom, lblNomRelation, tfNomRelation, lblZone2, attributsBox, editBox, lblAttr, attrInput, btnAjoutAttr, lblZone3, relationBox, btnSupprimerBloc);
     }
     
+   
+
+
     private void afficherRelations(int entiteSourceId) {
     relationBox.getChildren().clear();
 
@@ -298,10 +307,21 @@ lblFK.setText("Clé étrangère : " + (fk.isEmpty() ? "Aucune" : fk));
         mettreAJourAttributs();
         // Afficher les relations pour l'entité sélectionnée
 if (entiteCourante.containsKey("id")) {
-    int entiteSourceId = (int) entiteCourante.get("id");
-    afficherRelations(entiteSourceId);
-}
+    if (zone.isUML()) {
+        relationBox.setVisible(false);
+    } else {
+        relationBox.setVisible(true);
+        int entiteSourceId = (int) entiteCourante.get("id");
+        afficherRelations(entiteSourceId);
     }
+}
+if (editBox != null) {
+    editBox.setVisible(false);
+    editBox.setManaged(false);
+}
+}
+
+ 
     
     private void mettreAJourAttributs() {
     attributsBox.getChildren().clear();
@@ -321,6 +341,8 @@ if (entiteCourante.containsKey("id")) {
 
             // Action Modifier
             btnEdit.setOnAction(e -> {
+            editBox.setVisible(true);
+            editBox.setManaged(true);
                 tfEditNom.setText((String) attr.get("nom"));
          
                 rbEditPK.setSelected((boolean) attr.getOrDefault("cle_primaire", false));
@@ -341,6 +363,8 @@ if (entiteCourante.containsKey("id")) {
 
                     zone.mettreAJourEntite(entiteCourante);
                     mettreAJourAttributs(); // rafraîchir la liste
+                    editBox.setVisible(false); 
+                    editBox.setManaged(false);
                 });
             });
 
