@@ -51,8 +51,9 @@ private RelationDAO relationDAO = new RelationDAO(); // DAO pour manipuler les r
 
     String userId = UserSession.getInstance().getUserId();
 
-    public PanneauProprietes(ZoneModelisation zone) {
+    public PanneauProprietes(ZoneModelisation zone, InterfaceGenerateurUML interfaceRef) {
         this.zone = zone;
+        this.interfaceRef = interfaceRef;
         this.setPadding(new Insets(10));
         this.setSpacing(10);
         this.setPrefWidth(300);
@@ -193,6 +194,12 @@ btnSupprimerBloc.setOnAction(e -> {
     }
 });
 
+// Initialiser la visibilité selon le mode courant
+updateVisibility();
+
+// Écouter les changements UML/ERD
+setupVisibilityListeners();
+
 
 
 
@@ -201,6 +208,25 @@ btnSupprimerBloc.setOnAction(e -> {
     }
     
    
+private void setupVisibilityListeners() {
+    if (interfaceRef.getBtnUML() != null) {
+        interfaceRef.getBtnUML().selectedProperty().addListener((obs, oldVal, newVal) -> updateVisibility());
+    }
+    if (interfaceRef.getBtnERD() != null) {
+        interfaceRef.getBtnERD().selectedProperty().addListener((obs, oldVal, newVal) -> updateVisibility());
+    }
+}
+
+private void updateVisibility() {
+    if (lblZone3 != null && relationBox != null && interfaceRef != null) {
+        boolean isERDSelected = interfaceRef.getBtnERD() != null && interfaceRef.getBtnERD().isSelected();
+
+        lblZone3.setVisible(isERDSelected);
+        lblZone3.setManaged(isERDSelected);
+        relationBox.setVisible(isERDSelected);
+        relationBox.setManaged(isERDSelected);
+    }
+}
 
 
     private void afficherRelations(int entiteSourceId) {
