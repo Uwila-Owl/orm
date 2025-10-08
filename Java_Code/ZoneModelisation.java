@@ -53,6 +53,7 @@ public class ZoneModelisation extends Pane {
     private List<RelationERD> relationsERD = new ArrayList<>();
     private LogDAO logDAO = new LogDAO();
 
+
     String userId = UserSession.getInstance().getUserId();
 
     public interface SelectionListener {
@@ -124,6 +125,7 @@ public class ZoneModelisation extends Pane {
         });
     }
 
+
     // Méthode pour dessiner le quadrillage
     private void drawGrid() {
         double width = gridCanvas.getWidth();
@@ -140,6 +142,33 @@ public class ZoneModelisation extends Pane {
             gc.strokeLine(0, y, width, y);
         }
     }
+    
+    public void supprimerRelationVisuelleComplet(int relationId) {
+    RelationERD relERD = relationsERD.stream()
+        .filter(r -> r.getId() == relationId)
+        .findFirst()
+        .orElse(null);
+
+    if (relERD != null) {
+        contentGroup.getChildren().remove(relERD.getLigne1());
+        contentGroup.getChildren().remove(relERD.getLigne2());
+        contentGroup.getChildren().remove(relERD.getRelationGroup());
+        contentGroup.getChildren().remove(relERD.getCardinaliteSourceText());
+        contentGroup.getChildren().remove(relERD.getCardinaliteCibleText());
+        relationsERD.remove(relERD);
+    }
+}
+
+public void mettreAJourCardinalitesRelation(int relationId, String cardSource, String cardCible) {
+    for (RelationERD relERD : relationsERD) {
+        if (relERD.getId() == relationId) {
+            relERD.getCardinaliteSourceText().setText(cardSource);
+            relERD.getCardinaliteCibleText().setText(cardCible);
+            break;
+        }
+    }
+}
+
 
     public void setSelectionListener(SelectionListener listener) {
         this.selectionListener = listener;
