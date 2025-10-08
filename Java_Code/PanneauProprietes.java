@@ -43,6 +43,7 @@ private RadioButton rbEditSimple;
 private Button btnAppliquerModif;
 private VBox editBox;
 
+
 private Label lblZone3;
 // Zone 3 : liste des relations
 private VBox relationBox; // contiendra les relations et leurs boutons
@@ -233,6 +234,7 @@ private void updateVisibility() {
     relationBox.getChildren().clear();
 
     List<Map<String, Object>> relations = relationDAO.getAllRelations();
+    
     for (Map<String, Object> rel : relations) {
         int relId = (int) rel.get("id");
         int srcId = (int) rel.get("entite_source_id");
@@ -257,12 +259,16 @@ private void updateVisibility() {
             String newSrc = tfSrc.getText().trim();
             String newDst = tfDst.getText().trim();
             relationDAO.updateRelation(relId, nom, newSrc, newDst);
+            zone.mettreAJourCardinalitesRelation(relId, newSrc, newDst);
+
             
         });
 
         Button btnDel = new Button("✘");
         btnDel.setOnAction(e -> {
             relationDAO.supprimerRelation(relId);
+            zone.supprimerRelationVisuelleComplet(relId);
+
             
             afficherRelations(entiteSourceId);
         });
