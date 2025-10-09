@@ -53,7 +53,6 @@ public class ZoneModelisation extends Pane {
     private List<RelationERD> relationsERD = new ArrayList<>();
     private LogDAO logDAO = new LogDAO();
 
-
     String userId = UserSession.getInstance().getUserId();
 
     public interface SelectionListener {
@@ -125,7 +124,6 @@ public class ZoneModelisation extends Pane {
         });
     }
 
-
     // Méthode pour dessiner le quadrillage
     private void drawGrid() {
         double width = gridCanvas.getWidth();
@@ -142,33 +140,32 @@ public class ZoneModelisation extends Pane {
             gc.strokeLine(0, y, width, y);
         }
     }
-    
+
     public void supprimerRelationVisuelleComplet(int relationId) {
-    RelationERD relERD = relationsERD.stream()
-        .filter(r -> r.getId() == relationId)
-        .findFirst()
-        .orElse(null);
+        RelationERD relERD = relationsERD.stream()
+                .filter(r -> r.getId() == relationId)
+                .findFirst()
+                .orElse(null);
 
-    if (relERD != null) {
-        contentGroup.getChildren().remove(relERD.getLigne1());
-        contentGroup.getChildren().remove(relERD.getLigne2());
-        contentGroup.getChildren().remove(relERD.getRelationGroup());
-        contentGroup.getChildren().remove(relERD.getCardinaliteSourceText());
-        contentGroup.getChildren().remove(relERD.getCardinaliteCibleText());
-        relationsERD.remove(relERD);
-    }
-}
-
-public void mettreAJourCardinalitesRelation(int relationId, String cardSource, String cardCible) {
-    for (RelationERD relERD : relationsERD) {
-        if (relERD.getId() == relationId) {
-            relERD.getCardinaliteSourceText().setText(cardSource);
-            relERD.getCardinaliteCibleText().setText(cardCible);
-            break;
+        if (relERD != null) {
+            contentGroup.getChildren().remove(relERD.getLigne1());
+            contentGroup.getChildren().remove(relERD.getLigne2());
+            contentGroup.getChildren().remove(relERD.getRelationGroup());
+            contentGroup.getChildren().remove(relERD.getCardinaliteSourceText());
+            contentGroup.getChildren().remove(relERD.getCardinaliteCibleText());
+            relationsERD.remove(relERD);
         }
     }
-}
 
+    public void mettreAJourCardinalitesRelation(int relationId, String cardSource, String cardCible) {
+        for (RelationERD relERD : relationsERD) {
+            if (relERD.getId() == relationId) {
+                relERD.getCardinaliteSourceText().setText(cardSource);
+                relERD.getCardinaliteCibleText().setText(cardCible);
+                break;
+            }
+        }
+    }
 
     public void setSelectionListener(SelectionListener listener) {
         this.selectionListener = listener;
@@ -309,14 +306,30 @@ public void mettreAJourCardinalitesRelation(int relationId, String cardSource, S
             int sourceId = (int) rel.get("entite_source_id");
             int cibleId = (int) rel.get("entite_cible_id");
 
+            boolean belongsToSchema = false;
+            try (java.sql.Connection conn = ConnexionBdd.getConnection(); java.sql.PreparedStatement pstmt = conn.prepareStatement(
+                    "SELECT COUNT(*) FROM entites WHERE id IN (?, ?) AND schema_id = ?")) {
+                pstmt.setInt(1, sourceId);
+                pstmt.setInt(2, cibleId);
+                pstmt.setInt(3, schemaId);
+                java.sql.ResultSet rs = pstmt.executeQuery();
+                if (rs.next() && rs.getInt(1) == 2) {  // Les deux entités doivent être dans le schéma
+                    belongsToSchema = true;
+                }
+            } catch (SQLException e) {
+                logDAO.insertLog(userId, "Erreur vérification schéma pour relation: " + e.getMessage(), "WARNING");
+            }
+
+            if (!belongsToSchema) {
+                continue;  // Ignorer si pas du bon schéma
+
+            }
             Map<String, Object> source = entiteById.get(sourceId);
             Map<String, Object> cible = entiteById.get(cibleId);
-
             if (source != null && cible != null) {
                 String typeLien = rel.get("type_schema").equals("UML") ? "Héritage" : "Relation";
                 String cardSource = (String) rel.getOrDefault("cardinalite_source", "[ ]");
                 String cardCible = (String) rel.getOrDefault("cardinalite_cible", "[ ]");
-
                 String relationNom = (String) rel.getOrDefault("nom_relation", "Relation");
                 if (!relationExiste(source, cible, typeLien)) {
                     creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, cardSource, cardCible, relationNom);
@@ -354,39 +367,103 @@ public void mettreAJourCardinalitesRelation(int relationId, String cardSource, S
         System.out.println("Taille du contentGroup avant traitement : " + contentGroup.getChildren().size());
 
         if (typeLien.equals("Héritage")) {
-            // Bloc UML (héritage ou association UML)
+            // Bloc UML (héritage ou association UML) - MODIFIÉ : Ajout vérification BDD, insertion BDD après visuel, rollback si échec
             System.out.println(">>> Entrée dans bloc UML (typeLien='Héritage') <<<");
+
+            // AJOUT : Vérification d'existence en BDD avant insertion (pour éviter doublons)
+            try {
+                RelationDAO relationDAOCheck = new RelationDAO();
+                // Note : Adaptez si getRelationBySourceId n'existe pas ; utilisez une requête personnalisée
+                // Exemple : Map<String, Object> existingRel = relationDAOCheck.getRelationBySourceAndTarget((Integer) source.get("id"), (Integer) cible.get("id"));
+                Map<String, Object> existingRel = relationDAOCheck.getRelationBySourceId((Integer) source.get("id"));
+                if (existingRel != null && ((Integer) existingRel.get("entite_cible_id")).equals((Integer) cible.get("id"))) {
+                    System.err.println("ERREUR : Héritage UML existe déjà en BDD. Ignorée.");
+                    return;  // Éviter création si doublon en BDD
+                }
+            } catch (Exception checkEx) {
+                System.err.println("ERREUR vérification existence UML en BDD : " + checkEx.getMessage());
+                checkEx.printStackTrace();
+                // Optionnel : Continuer sans vérif BDD si échec (mais risqué)
+            }
+
+            // Création visuelle d'abord (code existant, avec try-catch pour isoler)
+            LigneAssociee la = null;  // Pour rollback si besoin
             try {
                 Line ligne = new Line();
                 ligne.setStroke(Color.GREEN); // Vert pour héritage
                 ligne.setStrokeWidth(3);
 
-                LigneAssociee la = new LigneAssociee(ligne, source, cible, cardSource, cardCible);
+                la = new LigneAssociee(ligne, source, cible, cardSource, cardCible);
                 lignesAssociees.add(la);
 
                 la.MajPosition();
                 contentGroup.getChildren().add(0, ligne);
                 contentGroup.getChildren().addAll(la.cardinaliteSourceText, la.cardinaliteCibleText);
 
-                System.out.println("Ajout UML réussi. Taille contentGroup après UML : " + contentGroup.getChildren().size());
+                System.out.println("Ajout visuel UML réussi. Taille contentGroup après UML : " + contentGroup.getChildren().size());
             } catch (Exception e) {
-                System.err.println("ERREUR dans bloc UML : " + e.getMessage());
+                System.err.println("ERREUR dans création visuelle UML : " + e.getMessage());
                 e.printStackTrace();
+                return;  // Arrêter si visuel échoue
+            }
+
+            // AJOUT : Insertion en BDD pour UML (après création visuelle réussie)
+            int relationDbId = -1;
+            try {
+                RelationDAO relationDAO = new RelationDAO();
+                relationDbId = relationDAO.insertRelation("Héritage", (Integer) source.get("id"), (Integer) cible.get("id"), cardSource, cardCible, "UML");
+                if (relationDbId == -1) {
+                    System.err.println("ERREUR : Échec de l'insertion de l'héritage UML en base de données.");
+                    // Rollback visuel si échec BDD (supprimer la ligne et textes ajoutés)
+                    if (la != null) {
+                        contentGroup.getChildren().remove(la.ligne);
+                        contentGroup.getChildren().removeAll(la.cardinaliteSourceText, la.cardinaliteCibleText);
+                        lignesAssociees.remove(la);
+                    }
+                    return;  // Ne pas continuer
+                }
+                logDAO.insertLog(userId, "Héritage UML créé en BDD avec ID: " + relationDbId, "INFO");
+                System.out.println("Héritage UML inséré en BDD avec ID: " + relationDbId);
+            } catch (Exception dbEx) {
+                System.err.println("ERREUR insertion UML en BDD : " + dbEx.getMessage());
+                dbEx.printStackTrace();
+                // Rollback visuel en cas d'erreur BDD
+                if (la != null) {
+                    contentGroup.getChildren().remove(la.ligne);
+                    contentGroup.getChildren().removeAll(la.cardinaliteSourceText, la.cardinaliteCibleText);
+                    lignesAssociees.remove(la);
+                }
+                return;
             }
 
         } else {
-            // Bloc ERD (pour typeLien='Relation' ou autre)
+            // Bloc ERD (pour typeLien='Relation' ou autre) - MODIFIÉ : Ajout vérification BDD avant insertion existante
             System.out.println(">>> Entrée dans bloc ERD (typeLien != 'Héritage') <<<");
 
-            // Force le mode ERD si mismatch (sécurité)
+            // Force le mode ERD si mismatch (sécurité) - code existant
             if (isUML) {
                 System.out.println("AVERTISSEMENT : isUML=true mais typeLien indique ERD. Forçage temporaire à ERD.");
                 isUML = false; // Temporaire pour ce traitement ; reset si besoin après
             }
 
-            // Étape 1 : Vérification relation existante
+            // MODIFICATION : Vérification d'existence en BDD avant insertion (cohérent avec UML)
+            try {
+                RelationDAO relationDAOCheck = new RelationDAO();
+                // Note : Adaptez si getRelationBySourceId n'existe pas
+                Map<String, Object> existingRel = relationDAOCheck.getRelationBySourceId((Integer) source.get("id"));
+                if (existingRel != null && ((Integer) existingRel.get("entite_cible_id")).equals((Integer) cible.get("id"))) {
+                    System.err.println("ERREUR : Relation ERD existe déjà en BDD. Ignorée.");
+                    return;  // Éviter création si doublon en BDD
+                }
+            } catch (Exception checkEx) {
+                System.err.println("ERREUR vérification existence ERD en BDD : " + checkEx.getMessage());
+                checkEx.printStackTrace();
+                // Optionnel : Continuer sans vérif BDD si échec
+            }
+
+            // Étape 1 : Vérification relation existante (visuelle) - code existant
             if (relationExiste(source, cible, typeLien)) {
-                System.err.println("ERREUR : Relation ERD existe déjà. Ignorée.");
+                System.err.println("ERREUR : Relation ERD existe déjà visuellement. Ignorée.");
                 return;
             }
 
@@ -398,13 +475,16 @@ public void mettreAJourCardinalitesRelation(int relationId, String cardSource, S
                     System.err.println("ERREUR : Échec de l'insertion de la relation ERD en base de données.");
                     return; // Ne pas créer la relation visuelle si l'insertion BDD échoue
                 }
+                // MODIFICATION : Ajout log après insertion réussie (cohérent avec UML)
+                logDAO.insertLog(userId, "Relation ERD créée en BDD avec ID: " + relationDbId + " (nom: " + relationNom + ")", "INFO");
+                System.out.println("Relation ERD insérée en BDD avec ID: " + relationDbId);
             } catch (Exception e) {
                 System.err.println("ERREUR lors de l'insertion de la relation ERD en base de données : " + e.getMessage());
                 e.printStackTrace();
                 return;
             }
 
-            // Étape 2 : Création RelationERD
+            // Étape 2 : Création RelationERD - code existant
             RelationERD relationERD = null;
             try {
                 System.out.println("Création de RelationERD...");
@@ -416,7 +496,7 @@ public void mettreAJourCardinalitesRelation(int relationId, String cardSource, S
                 return;
             }
 
-            // Étape 3 : Récupération et config éléments
+            // Étape 3 : Récupération et config éléments - code existant
             try {
                 Line ligne1 = relationERD.getLigne1();
                 Line ligne2 = relationERD.getLigne2();
@@ -431,7 +511,7 @@ public void mettreAJourCardinalitesRelation(int relationId, String cardSource, S
                         + ", CardSource null? " + (cardinaliteSourceText == null)
                         + ", CardCible null? " + (cardinaliteCibleText == null));
 
-                // Initialisation si null (exemple)
+                // Initialisation si null (exemple) - code existant
                 if (ligne1 == null) {
                     ligne1 = new Line();
                     ligne1.setStroke(Color.BLACK);
@@ -445,7 +525,7 @@ public void mettreAJourCardinalitesRelation(int relationId, String cardSource, S
                     ligne2.setVisible(true);
                 }
 
-                // Visibilité forcée
+                // Visibilité forcée - code existant
                 ligne1.setVisible(true);
                 ligne1.setOpacity(1.0);
                 ligne2.setVisible(true);
@@ -472,7 +552,7 @@ public void mettreAJourCardinalitesRelation(int relationId, String cardSource, S
                 return;
             }
 
-            // Étape 4 : Mise à jour positions
+            // Étape 4 : Mise à jour positions - code existant
             try {
                 System.out.println("Mise à jour positions...");
                 relationERD.mettreAJourPositions();
@@ -483,7 +563,7 @@ public void mettreAJourCardinalitesRelation(int relationId, String cardSource, S
                 return;
             }
 
-            // Étape 5 : Ajout séquentiel
+            // Étape 5 : Ajout séquentiel - code existant
             System.out.println("Taille avant ajout ERD : " + contentGroup.getChildren().size());
             try {
                 contentGroup.getChildren().add(relationERD.getLigne1());
