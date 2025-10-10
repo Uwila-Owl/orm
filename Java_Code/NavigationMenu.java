@@ -14,8 +14,9 @@ import java.util.Optional;
 import java.util.Map;
 import javafx.scene.Group;
 import javafx.scene.control.Slider;
-
-// ERIC: AJOUT DES IMPORTS MANQUANTS
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import com.uml.generator.export.DiagramExporter;
 import com.uml.generator.export.DiagramImporter;
 
@@ -29,9 +30,6 @@ public class NavigationMenu {
     public static MenuBar createMenuBar(Stage primaryStage, ZoneModelisation zoneModelisation) {
         MenuBar menuBar = new MenuBar();
         
-        // ERIC: SUPPRESSION DE LA LIGNE CAUSANT L'ERREUR DataManager
-        // DataManager.getInstance().setCurrentZoneModelisation(zoneModelisation);
-
         menuBar.setStyle("-fx-background-color: #149FB6;");
 
         String userId = UserSession.getInstance().getUserId();
@@ -48,25 +46,23 @@ public class NavigationMenu {
         // ---- Édition ----
         Menu editMenu = new Menu("Édition");
         editMenu.setStyle("-fx-text-fill: white;");
-        MenuItem cutItem = new MenuItem("Coller");
-        MenuItem copyItem = new MenuItem("Retour");
-        MenuItem pasteItem = new MenuItem("Avancer");
-        editMenu.getItems().addAll(cutItem, copyItem, pasteItem);
+        
+        // MODIFICATION - GARDER SEULEMENT "RETOUR" ET "AVANCER"
+        MenuItem undoItem = new MenuItem("Retour");
+        MenuItem redoItem = new MenuItem("Avancer");
+        
+        //AJOUT DES RACCOURCIS CLAVIER
+        undoItem.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.CONTROL_DOWN));
+        redoItem.setAccelerator(new KeyCodeCombination(KeyCode.Y, KeyCombination.CONTROL_DOWN));
+        
+        editMenu.getItems().addAll(undoItem, redoItem);
 
         // ---- Vue ----
         Menu viewMenu = new Menu("Vue");
         viewMenu.setStyle("-fx-text-fill: white;");
-        // ERIC: SUPPRESSION DE "MINIMISER" - SEULEMENT "ETENDRE" ET "ZOOM"
         MenuItem expandItem = new MenuItem("Etendre");
         MenuItem zoomItem = new MenuItem("Zoom");
         viewMenu.getItems().addAll(expandItem, zoomItem);
-
-        // ---- Générer ----
-        Menu generateMenu = new Menu("Générer");
-        generateMenu.setStyle("-fx-text-fill: white;");
-        MenuItem reportItem = new MenuItem("UML");
-        MenuItem exportDiagramItem = new MenuItem("Diagramme E & R");
-        generateMenu.getItems().addAll(reportItem, exportDiagramItem);
 
         // ---- Aide ----
         Menu helpMenu = new Menu("Aide");
@@ -77,7 +73,7 @@ public class NavigationMenu {
         MenuItem discordItem = new MenuItem("Chatbot Discord");
         helpMenu.getItems().addAll(aboutItem, docsItem, bugItem, discordItem);
 
-        menuBar.getMenus().addAll(fileMenu, editMenu, viewMenu, generateMenu, helpMenu);
+        menuBar.getMenus().addAll(fileMenu, editMenu, viewMenu, helpMenu);
 
         // ---- Actions de menu ----
 
@@ -96,7 +92,7 @@ public class NavigationMenu {
             }
             
             if (zoneModelisation != null) {
-                // ERIC: REMPLACEMENT DE clearInstance() PAR clear()
+                // REMPLACEMENT DE clearInstance() PAR clear()
                 zoneModelisation.clear();
                 modificationsNonSauvegardees = false;
                 logDAO.insertLog(userId, "Nouveau schéma créé", "INFO");
@@ -124,11 +120,11 @@ public class NavigationMenu {
                         if (!fileName.endsWith(".xml")) {
                             selectedFile = new File(selectedFile.getParent(), selectedFile.getName() + ".xml");
                         }
-                        // ERIC: CORRECTION DE L'APPEL À DiagramExporter.exportToXML
+                        //CORRECTION DE L'APPEL À DiagramExporter.exportToXML
                         DiagramExporter.exportToXML(selectedFile, zoneModelisation.getDiagramData());
                         modificationsNonSauvegardees = false;
                     } else if (fileName.endsWith(".png")) {
-                        // ERIC: CORRECTION DE L'APPEL À DiagramExporter.exportToPNG
+                        //CORRECTION DE L'APPEL À DiagramExporter.exportToPNG
                         DiagramExporter.exportToPNG(selectedFile, zoneModelisation);
                     }
                     logDAO.insertLog(userId, "Diagramme enregistré : " + selectedFile.getAbsolutePath(), "INFO");
@@ -160,7 +156,7 @@ public class NavigationMenu {
             
             if (selectedFile != null) {
                 try {
-                    // ERIC: CORRECTION DE L'APPEL À DiagramImporter.importFromXML
+                    //CORRECTION DE L'APPEL À DiagramImporter.importFromXML
                     Map<String, Object> diagramData = DiagramImporter.importFromXML(selectedFile);
                     zoneModelisation.loadDiagramData(diagramData);
                     modificationsNonSauvegardees = false;
@@ -193,6 +189,23 @@ public class NavigationMenu {
             logDAO.insertLog(userId, "Application fermée", "INFO");
         });
 
+        // ACTIONS POUR UNDO/REDO
+        undoItem.setOnAction(e -> {
+            if (zoneModelisation != null && zoneModelisation.canUndo()) {
+                zoneModelisation.undo();
+                modificationsNonSauvegardees = true;
+                markModified();
+            }
+        });
+
+        redoItem.setOnAction(e -> {
+            if (zoneModelisation != null && zoneModelisation.canRedo()) {
+                zoneModelisation.redo();
+                modificationsNonSauvegardees = true;
+                markModified();
+            }
+        });
+
         // ---- Actions du menu Vue ----
 
         // Etendre : Mode plein écran pour la zone de modélisation uniquement
@@ -201,7 +214,6 @@ public class NavigationMenu {
             logDAO.insertLog(userId, "Mode étendu activé pour la zone de modélisation", "INFO");
         });
 
-        // ERIC: SUPPRESSION COMPLÈTE DE L'ACTION "MINIMISER"
 
         // Zoom : Définir le pourcentage manuellement avec changement visuel instantané
         zoomItem.setOnAction(e -> {
@@ -215,6 +227,25 @@ public class NavigationMenu {
         bugItem.setOnAction(e -> showBugReportDialog(primaryStage));
         discordItem.setOnAction(e -> openDiscordChatbot(primaryStage));
 
+        // AJOUT DES ÉCOUTEURS CLAVIER POUR UNDO/REDO 
+        if (primaryStage.getScene() != null) {
+            primaryStage.getScene().setOnKeyPressed(event -> {
+                if (event.isControlDown()) {
+                    if (event.getCode() == KeyCode.Z && zoneModelisation != null && zoneModelisation.canUndo()) {
+                        zoneModelisation.undo();
+                        modificationsNonSauvegardees = true;
+                        markModified();
+                        event.consume();
+                    } else if (event.getCode() == KeyCode.Y && zoneModelisation != null && zoneModelisation.canRedo()) {
+                        zoneModelisation.redo();
+                        modificationsNonSauvegardees = true;
+                        markModified();
+                        event.consume();
+                    }
+                }
+            });
+        }
+
         return menuBar;
     }
 
@@ -222,7 +253,7 @@ public class NavigationMenu {
      * Crée un mode plein écran pour la zone de modélisation uniquement
      */
     private static void createFullScreenMode(Stage primaryStage, ZoneModelisation zoneModelisation) {
-        // ERIC: CORRECTION - FERMER LA FENÊTRE ÉTENDUE EXISTANTE SI ELLE EST OUVERTE
+        //CORRECTION - FERMER LA FENÊTRE ÉTENDUE EXISTANTE SI ELLE EST OUVERTE
         if (fullScreenStage != null && fullScreenStage.isShowing()) {
             fullScreenStage.close();
         }
@@ -251,7 +282,7 @@ public class NavigationMenu {
         Scene fullScreenScene = new Scene(root);
         fullScreenStage.setScene(fullScreenScene);
 
-        // ERIC: AMÉLIORATION - GESTION DES TOUCHES POUR LE MODE ÉTENDU
+        //AMÉLIORATION - GESTION DES TOUCHES POUR LE MODE ÉTENDU
         fullScreenScene.setOnKeyPressed(event -> {
             switch (event.getCode()) {
                 case ESCAPE:
@@ -262,7 +293,7 @@ public class NavigationMenu {
             }
         });
 
-        // ERIC: AJOUT - GESTION DE LA FERMETURE DE LA FENÊTRE ÉTENDUE
+        // AJOUT - GESTION DE LA FERMETURE DE LA FENÊTRE ÉTENDUE
         fullScreenStage.setOnCloseRequest(event -> {
             fullScreenStage = null;
         });

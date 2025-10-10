@@ -224,9 +224,9 @@ public class BarreOutils extends VBox {
                 // Sauvegarde en DB (adaptez RelationDAO si différent)
                 int sourceId = (Integer) source.get("id");
                 int cibleId = (Integer) cible.get("id");
-                // RelationDAO relationDAO = new RelationDAO();
-                // relationDAO.insertRelation(relationNom, sourceId, cibleId, cardSource, cardCible, "ERD");
-                // logDAO.insertLog(userId, "Relation ERD créée : " + relationNom, "INFO");
+                RelationDAO relationDAO = new RelationDAO();
+                relationDAO.insertRelation(relationNom, sourceId, cibleId, cardSource, cardCible, "ERD");
+                logDAO.insertLog(userId, "Relation ERD créée : " + relationNom, "INFO");
 
             } else {
                 // --- Cas UML ---
@@ -236,9 +236,9 @@ public class BarreOutils extends VBox {
                 // Sauvegarde en DB pour UML
                 int sourceId = (Integer) source.get("id");
                 int cibleId = (Integer) cible.get("id");
-                // RelationDAO relationDAO = new RelationDAO();
-                // relationDAO.insertRelation("Héritage", sourceId, cibleId, "[ ]", "[ ]", "UML");
-                // logDAO.insertLog(userId, "Héritage UML créé", "INFO");
+                RelationDAO relationDAO = new RelationDAO();
+                relationDAO.insertRelation("Héritage", sourceId, cibleId, "[ ]", "[ ]", "UML");
+                logDAO.insertLog(userId, "Héritage UML créé", "INFO");
             }
 
             // Clear champs après succès

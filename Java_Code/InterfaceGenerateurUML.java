@@ -40,13 +40,13 @@ public class InterfaceGenerateurUML extends Application {
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
 
-        // ERIC: CRÉATION DE LA ZONEMODELISATION AVANT LA BARRE DE MENU
+        //CRÉATION DE LA ZONEMODELISATION AVANT LA BARRE DE MENU
         ZoneModelisation zoneModelisation = new ZoneModelisation(currentSchemaId);
         zoneModelisation.setPrefSize(Double.MAX_VALUE, Double.MAX_VALUE);
         this.ZoneModelisation = zoneModelisation;
         zoneModelisation.setStyle("-fx-padding: 50; -fx-border-color: gray;");
 
-        // ERIC: CORRECTION DE L'APPEL À createMenuBar AVEC LE BON NOMBRE DE PARAMÈTRES
+        // CORRECTION DE L'APPEL À createMenuBar AVEC LE BON NOMBRE DE PARAMÈTRES
         MenuBar menuBar = NavigationMenu.createMenuBar(primaryStage, zoneModelisation);
 
         // Créer la zone utilisateur avec les vraies informations
@@ -80,7 +80,7 @@ public class InterfaceGenerateurUML extends Application {
 
         VBox top = new VBox(menuContainer, onglets);
 
-        // ERIC: DÉPLACEMENT DE LA CRÉATION DE ZoneModelisation PLUS HAUT (DÉJÀ FAIT)
+        // DÉPLACEMENT DE LA CRÉATION DE ZoneModelisation PLUS HAUT (DÉJÀ FAIT)
 
         // Encapsuler la ZoneModelisation dans un ScrollPane
         ScrollPane scrollPane = new ScrollPane(zoneModelisation);
@@ -123,16 +123,19 @@ public class InterfaceGenerateurUML extends Application {
         primaryStage.setMaximized(true);
         primaryStage.setFullScreenExitHint("");
 
-        // ERIC: CONFIGURATION DES ÉVÉNEMENTS POUR LES BOUTONS UML/ERD
+        //CONFIGURATION DES ÉVÉNEMENTS POUR LES BOUTONS UML/ERD
         setupUMLERDToggles();
 
         // Configuration de la vérification de session
         setupSessionCheck();
 
+        // AJOUT DU SUIVI DES MODIFICATIONS
+        setupModificationTracking();
+
         primaryStage.show();
     }
 
-    // ERIC: MÉTHODE POUR CONFIGURER LES BOUTONS UML/ERD - DÉBUT
+    //MÉTHODE POUR CONFIGURER LES BOUTONS UML/ERD 
     private void setupUMLERDToggles() {
         btnUML.setOnAction(e -> {
             if (!ZoneModelisation.isUML()) {
@@ -146,7 +149,7 @@ public class InterfaceGenerateurUML extends Application {
             }
         });
     }
-    // ERIC: MÉTHODE POUR CONFIGURER LES BOUTONS UML/ERD - FIN
+   
 
     private VBox createBarreOutils() {
         return new BarreOutils(ZoneModelisation, this);
@@ -342,11 +345,17 @@ public class InterfaceGenerateurUML extends Application {
     }
     // ERIC: MÉTHODE POUR GÉRER LE CHANGEMENT DE TYPE DE SCHÉMA - FIN
 
+    //AJOUT DU SUIVI DES MODIFICATIONS POUR UNDO/REDO
     private void setupModificationTracking() {
         if (ZoneModelisation != null) {
             ZoneModelisation.addEventFilter(MouseEvent.MOUSE_DRAGGED, e -> {
                 NavigationMenu.markModified();
                 updateWindowTitle(true);
+                
+                // ERIC: SAUVEGARDE AUTOMATIQUE DANS L'HISTORIQUE PENDANT LE DRAG
+                if (e.isPrimaryButtonDown()) {
+                    ZoneModelisation.saveToHistory();
+                }
             });
         }
     }

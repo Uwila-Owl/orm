@@ -1,4 +1,3 @@
-
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.input.MouseEvent;
@@ -25,11 +24,18 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-// AJOUT: Imports manquants pour les méthodes
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import java.util.Optional;
 import java.util.Date;
+
+// AJOUT DES IMPORTS POUR LE MENU CONTEXTUEL
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.DataFormat;
 
 public class ZoneModelisation extends Pane {
 
@@ -53,10 +59,23 @@ public class ZoneModelisation extends Pane {
     private List<RelationERD> relationsERD = new ArrayList<>();
     private LogDAO logDAO = new LogDAO();
 
+    //AJOUT DU SYSTÈME D'HISTORIQUE POUR UNDO/REDO
+    private List<Map<String, Object>> history = new ArrayList<>();
+    private int currentHistoryIndex = -1;
+    private static final int MAX_HISTORY_SIZE = 50;
+
+    // VARIABLES POUR LE MENU CONTEXTUEL ET CLIPBOARD
+    private ContextMenu contextMenu;
+    private MenuItem copyItem;
+    private MenuItem cutItem;
+    private MenuItem pasteItem;
+    private Map<String, Object> clipboardData;
+    private String clipboardOperation; // "copy" ou "cut"
+    private Map<String, Object> lastSelectedEntity;
+
     String userId = UserSession.getInstance().getUserId();
 
     public interface SelectionListener {
-
         void onSelection(Map<String, Object> entite);
     }
 
@@ -122,6 +141,258 @@ public class ZoneModelisation extends Pane {
             positionCurseurText.setLayoutY(padding);
             repositionnerPositionCurseur();
         });
+
+        // INITIALISATION DU MENU CONTEXTUEL
+        setupContextMenu();
+
+        //SAUVEGARDE INITIALE DANS L'HISTORIQUE
+        saveToHistory();
+    }
+
+    // MÉTHODE POUR INITIALISER LE MENU CONTEXTUEL
+    private void setupContextMenu() {
+        contextMenu = new ContextMenu();
+        
+        copyItem = new MenuItem("Copier");
+        cutItem = new MenuItem("Couper");
+        pasteItem = new MenuItem("Coller");
+        
+        // Style des items du menu
+        copyItem.setStyle("-fx-font-size: 12px; -fx-padding: 5 10 5 10;");
+        cutItem.setStyle("-fx-font-size: 12px; -fx-padding: 5 10 5 10;");
+        pasteItem.setStyle("-fx-font-size: 12px; -fx-padding: 5 10 5 10;");
+        
+        contextMenu.getItems().addAll(copyItem, cutItem, new SeparatorMenuItem(), pasteItem);
+        
+        // Actions des menus
+        copyItem.setOnAction(e -> copySelectedEntity());
+        cutItem.setOnAction(e -> cutSelectedEntity());
+        pasteItem.setOnAction(e -> pasteEntity());
+        
+        // Gérer l'affichage du menu contextuel
+        this.setOnContextMenuRequested(event -> {
+            // Vérifier si on clique sur une entité
+            Node clickedNode = event.getPickResult().getIntersectedNode();
+            Map<String, Object> clickedEntity = findEntityFromNode(clickedNode);
+            
+            if (clickedEntity != null) {
+                // Clic sur une entité - activer copier/couper
+                copyItem.setDisable(false);
+                cutItem.setDisable(false);
+                lastSelectedEntity = clickedEntity;
+                
+                // Notifier le sélection listener
+                if (selectionListener != null) {
+                    selectionListener.onSelection(clickedEntity);
+                }
+            } else {
+                // Clic dans le vide - désactiver copier/couper
+                copyItem.setDisable(true);
+                cutItem.setDisable(true);
+                lastSelectedEntity = null;
+            }
+            
+            // Activer/désactiver coller selon le contenu du clipboard
+            pasteItem.setDisable(clipboardData == null);
+            
+            contextMenu.show(this, event.getScreenX(), event.getScreenY());
+            event.consume();
+        });
+        
+        // Cacher le menu contextuel quand on clique ailleurs
+        this.setOnMousePressed(event -> {
+            if (contextMenu.isShowing()) {
+                contextMenu.hide();
+            }
+        });
+
+        // Configurer les raccourcis clavier
+        setupKeyboardShortcuts();
+    }
+
+    // MÉTHODE POUR CONFIGURER LES RACCOURCIS CLAVIER
+    private void setupKeyboardShortcuts() {
+        this.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            if (event.isShortcutDown()) {
+                switch (event.getCode()) {
+                    case C:
+                        if (lastSelectedEntity != null) {
+                            copySelectedEntity();
+                            event.consume();
+                        }
+                        break;
+                    case X:
+                        if (lastSelectedEntity != null) {
+                            cutSelectedEntity();
+                            event.consume();
+                        }
+                        break;
+                    case V:
+                        if (clipboardData != null) {
+                            pasteEntity();
+                            event.consume();
+                        }
+                        break;
+                }
+            }
+        });
+    }
+
+    // MÉTHODE POUR TROUVER L'ENTITÉ CORRESPONDANT À UN NODE
+    private Map<String, Object> findEntityFromNode(Node node) {
+        if (node == null) return null;
+        
+        // Remonter dans la hiérarchie parentale pour trouver le Group de l'entité
+        Node currentNode = node;
+        while (currentNode != null && currentNode != this) {
+            if (currentNode instanceof Group) {
+                for (Map.Entry<Integer, Group> entry : entiteToGroup.entrySet()) {
+                    if (entry.getValue() == currentNode) {
+                        return entiteById.get(entry.getKey());
+                    }
+                }
+            }
+            currentNode = currentNode.getParent();
+        }
+        return null;
+    }
+
+    // MÉTHODE POUR COPIER UNE ENTITÉ
+    private void copySelectedEntity() {
+        if (lastSelectedEntity != null) {
+            // SAUVEGARDE HISTORIQUE
+            saveToHistory();
+            
+            // Copier les données de l'entité
+            clipboardData = deepCopyEntity(lastSelectedEntity);
+            clipboardOperation = "copy";
+            
+            logDAO.insertLog(userId, "Entité copiée: " + lastSelectedEntity.get("nom"), "INFO");
+            
+            // Afficher un message de confirmation
+            showStatusMessage("Entité '" + lastSelectedEntity.get("nom") + "' copiée");
+        }
+    }
+
+    // MÉTHODE POUR COUPER UNE ENTITÉ
+    private void cutSelectedEntity() {
+        if (lastSelectedEntity != null) {
+            // SAUVEGARDE HISTORIQUE
+            saveToHistory();
+            
+            // Copier les données de l'entité
+            clipboardData = deepCopyEntity(lastSelectedEntity);
+            clipboardOperation = "cut";
+            
+            String entityName = (String) lastSelectedEntity.get("nom");
+            
+            // Supprimer l'entité originale si c'est un cut
+            supprimerEntite((Integer) lastSelectedEntity.get("id"));
+            
+            logDAO.insertLog(userId, "Entité coupée: " + entityName, "INFO");
+            
+            // Afficher un message de confirmation
+            showStatusMessage("Entité '" + entityName + "' coupée");
+            
+            lastSelectedEntity = null;
+        }
+    }
+
+    // MÉTHODE POUR COLLER UNE ENTITÉ
+    private void pasteEntity() {
+        if (clipboardData != null) {
+            // SAUVEGARDE HISTORIQUE
+            saveToHistory();
+            
+            // Créer une nouvelle entité basée sur les données du clipboard
+            Map<String, Object> newEntity = deepCopyEntity(clipboardData);
+            
+            // Décaler la position pour éviter le chevauchement
+            double originalX = (double) newEntity.get("position_x");
+            double originalY = (double) newEntity.get("position_y");
+            newEntity.put("position_x", originalX + 30);
+            newEntity.put("position_y", originalY + 30);
+            
+            // Générer un nouveau nom si nécessaire pour éviter les doublons
+            String originalName = (String) newEntity.get("nom");
+            String newName = generateUniqueName(originalName);
+            newEntity.put("nom", newName);
+            
+            // Réinitialiser l'ID pour créer une nouvelle entité
+            newEntity.put("id", -1);
+            
+            // Ajouter la nouvelle entité
+            ajouterEntite(newEntity);
+            
+            // Si c'était un cut, vider le clipboard après le collage
+            if ("cut".equals(clipboardOperation)) {
+                clipboardData = null;
+                clipboardOperation = null;
+            }
+            
+            logDAO.insertLog(userId, "Entité collée: " + newName, "INFO");
+            
+            // Afficher un message de confirmation
+            showStatusMessage("Entité '" + newName + "' collée");
+        }
+    }
+
+    // MÉTHODE POUR GÉNÉRER UN NOM UNIQUE
+    private String generateUniqueName(String baseName) {
+        String newName = baseName;
+        int counter = 1;
+        
+        while (entiteNameExists(newName)) {
+            newName = baseName + "_" + counter;
+            counter++;
+        }
+        
+        return newName;
+    }
+
+    // MÉTHODE POUR VÉRIFIER SI UN NOM D'ENTITÉ EXISTE DÉJÀ
+    private boolean entiteNameExists(String name) {
+        for (Map<String, Object> entite : entiteById.values()) {
+            if (name.equals(entite.get("nom"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // MÉTHODE POUR FAIRE UNE COPIE PROFONDE D'UNE ENTITÉ
+    private Map<String, Object> deepCopyEntity(Map<String, Object> original) {
+        Map<String, Object> copy = new HashMap<>();
+        
+        // Copier les propriétés de base
+        copy.put("id", original.get("id"));
+        copy.put("nom", original.get("nom"));
+        copy.put("position_x", original.get("position_x"));
+        copy.put("position_y", original.get("position_y"));
+        copy.put("type_schema", original.get("type_schema"));
+        
+        // Copier les attributs
+        List<Map<String, Object>> originalAttributs = (List<Map<String, Object>>) original.get("attributs");
+        if (originalAttributs != null) {
+            List<Map<String, Object>> copiedAttributs = new ArrayList<>();
+            for (Map<String, Object> attribut : originalAttributs) {
+                Map<String, Object> copiedAttribut = new HashMap<>();
+                copiedAttribut.put("nom", attribut.get("nom"));
+                copiedAttribut.put("cle_primaire", attribut.get("cle_primaire"));
+                copiedAttribut.put("cle_etrangere", attribut.get("cle_etrangere"));
+                copiedAttribut.put("type_schema", attribut.get("type_schema"));
+                copiedAttributs.add(copiedAttribut);
+            }
+            copy.put("attributs", copiedAttributs);
+        }
+        
+        return copy;
+    }
+
+    // MÉTHODE POUR AFFICHER UN MESSAGE DE STATUT
+    private void showStatusMessage(String message) {
+        // Cette méthode pourrait être connectée à votre barre de statut
+        System.out.println("STATUS: " + message);
     }
 
     // Méthode pour dessiner le quadrillage
@@ -138,32 +409,6 @@ public class ZoneModelisation extends Pane {
         }
         for (int y = 0; y <= height; y += 10) {
             gc.strokeLine(0, y, width, y);
-        }
-    }
-
-    public void supprimerRelationVisuelleComplet(int relationId) {
-        RelationERD relERD = relationsERD.stream()
-                .filter(r -> r.getId() == relationId)
-                .findFirst()
-                .orElse(null);
-
-        if (relERD != null) {
-            contentGroup.getChildren().remove(relERD.getLigne1());
-            contentGroup.getChildren().remove(relERD.getLigne2());
-            contentGroup.getChildren().remove(relERD.getRelationGroup());
-            contentGroup.getChildren().remove(relERD.getCardinaliteSourceText());
-            contentGroup.getChildren().remove(relERD.getCardinaliteCibleText());
-            relationsERD.remove(relERD);
-        }
-    }
-
-    public void mettreAJourCardinalitesRelation(int relationId, String cardSource, String cardCible) {
-        for (RelationERD relERD : relationsERD) {
-            if (relERD.getId() == relationId) {
-                relERD.getCardinaliteSourceText().setText(cardSource);
-                relERD.getCardinaliteCibleText().setText(cardCible);
-                break;
-            }
         }
     }
 
@@ -201,6 +446,9 @@ public class ZoneModelisation extends Pane {
     }
 
     public void ajouterEntite(Map<String, Object> entite) {
+        //SAUVEGARDE AVANT MODIFICATION
+        saveToHistory();
+
         if (!entite.containsKey("id") || ((Integer) entite.get("id")) == -1) {
             String nom = (String) entite.get("nom");
             int positionX = ((Double) entite.get("position_x")).intValue();
@@ -243,7 +491,7 @@ public class ZoneModelisation extends Pane {
     public void ChargerEntites(String typeSchema, int schemaId) {
         List<Map<String, Object>> entitiesFromDb = new ArrayList<>();
         try (java.sql.Connection conn = ConnexionBdd.getConnection(); java.sql.PreparedStatement pstmtEntites = conn.prepareStatement("SELECT id, nom, position_x, position_y, type_schema FROM entites WHERE type_schema = ? AND schema_id = ?"); // Ajout du filtre schema_id
-                 java.sql.PreparedStatement pstmtAttributs = conn.prepareStatement("SELECT nom, cle_primaire, cle_etrangere, type_schema FROM attributs WHERE entite_id = ? AND type_schema = ?")) {
+                java.sql.PreparedStatement pstmtAttributs = conn.prepareStatement("SELECT nom, cle_primaire, cle_etrangere, type_schema FROM attributs WHERE entite_id = ? AND type_schema = ?")) {
             pstmtEntites.setString(1, typeSchema);
 
             pstmtEntites.setInt(2, schemaId); // Définir le paramètre schema_id
@@ -306,30 +554,14 @@ public class ZoneModelisation extends Pane {
             int sourceId = (int) rel.get("entite_source_id");
             int cibleId = (int) rel.get("entite_cible_id");
 
-            boolean belongsToSchema = false;
-            try (java.sql.Connection conn = ConnexionBdd.getConnection(); java.sql.PreparedStatement pstmt = conn.prepareStatement(
-                    "SELECT COUNT(*) FROM entites WHERE id IN (?, ?) AND schema_id = ?")) {
-                pstmt.setInt(1, sourceId);
-                pstmt.setInt(2, cibleId);
-                pstmt.setInt(3, schemaId);
-                java.sql.ResultSet rs = pstmt.executeQuery();
-                if (rs.next() && rs.getInt(1) == 2) {  // Les deux entités doivent être dans le schéma
-                    belongsToSchema = true;
-                }
-            } catch (SQLException e) {
-                logDAO.insertLog(userId, "Erreur vérification schéma pour relation: " + e.getMessage(), "WARNING");
-            }
-
-            if (!belongsToSchema) {
-                continue;  // Ignorer si pas du bon schéma
-
-            }
             Map<String, Object> source = entiteById.get(sourceId);
             Map<String, Object> cible = entiteById.get(cibleId);
+
             if (source != null && cible != null) {
                 String typeLien = rel.get("type_schema").equals("UML") ? "Héritage" : "Relation";
                 String cardSource = (String) rel.getOrDefault("cardinalite_source", "[ ]");
                 String cardCible = (String) rel.getOrDefault("cardinalite_cible", "[ ]");
+
                 String relationNom = (String) rel.getOrDefault("nom_relation", "Relation");
                 if (!relationExiste(source, cible, typeLien)) {
                     creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, cardSource, cardCible, relationNom);
@@ -338,13 +570,16 @@ public class ZoneModelisation extends Pane {
         }
     }
 
-    // ERIC: AJOUT DE LA MÉTHODE getSchemaId() MANQUANTE
+    //AJOUT DE LA MÉTHODE getSchemaId() MANQUANTE
     public int getSchemaId() {
         return (loadedSchemaId != -1) ? loadedSchemaId : schemaId;
     }
 
     public void creerLienEntreEntitesAvecCardinalites(Map<String, Object> source, Map<String, Object> cible, String typeLien,
             String cardSource, String cardCible, String relationNom) {
+        // SAUVEGARDE AVANT MODIFICATION
+        saveToHistory();
+
         if (source == null || cible == null || source.equals(cible)) {
             System.err.println("ERREUR : Source ou cible null ou identiques. Retour prématuré.");
             return;
@@ -367,103 +602,39 @@ public class ZoneModelisation extends Pane {
         System.out.println("Taille du contentGroup avant traitement : " + contentGroup.getChildren().size());
 
         if (typeLien.equals("Héritage")) {
-            // Bloc UML (héritage ou association UML) - MODIFIÉ : Ajout vérification BDD, insertion BDD après visuel, rollback si échec
+            // Bloc UML (héritage ou association UML)
             System.out.println(">>> Entrée dans bloc UML (typeLien='Héritage') <<<");
-
-            // AJOUT : Vérification d'existence en BDD avant insertion (pour éviter doublons)
-            try {
-                RelationDAO relationDAOCheck = new RelationDAO();
-                // Note : Adaptez si getRelationBySourceId n'existe pas ; utilisez une requête personnalisée
-                // Exemple : Map<String, Object> existingRel = relationDAOCheck.getRelationBySourceAndTarget((Integer) source.get("id"), (Integer) cible.get("id"));
-                Map<String, Object> existingRel = relationDAOCheck.getRelationBySourceId((Integer) source.get("id"));
-                if (existingRel != null && ((Integer) existingRel.get("entite_cible_id")).equals((Integer) cible.get("id"))) {
-                    System.err.println("ERREUR : Héritage UML existe déjà en BDD. Ignorée.");
-                    return;  // Éviter création si doublon en BDD
-                }
-            } catch (Exception checkEx) {
-                System.err.println("ERREUR vérification existence UML en BDD : " + checkEx.getMessage());
-                checkEx.printStackTrace();
-                // Optionnel : Continuer sans vérif BDD si échec (mais risqué)
-            }
-
-            // Création visuelle d'abord (code existant, avec try-catch pour isoler)
-            LigneAssociee la = null;  // Pour rollback si besoin
             try {
                 Line ligne = new Line();
                 ligne.setStroke(Color.GREEN); // Vert pour héritage
                 ligne.setStrokeWidth(3);
 
-                la = new LigneAssociee(ligne, source, cible, cardSource, cardCible);
+                LigneAssociee la = new LigneAssociee(ligne, source, cible, cardSource, cardCible);
                 lignesAssociees.add(la);
 
                 la.MajPosition();
                 contentGroup.getChildren().add(0, ligne);
                 contentGroup.getChildren().addAll(la.cardinaliteSourceText, la.cardinaliteCibleText);
 
-                System.out.println("Ajout visuel UML réussi. Taille contentGroup après UML : " + contentGroup.getChildren().size());
+                System.out.println("Ajout UML réussi. Taille contentGroup après UML : " + contentGroup.getChildren().size());
             } catch (Exception e) {
-                System.err.println("ERREUR dans création visuelle UML : " + e.getMessage());
+                System.err.println("ERREUR dans bloc UML : " + e.getMessage());
                 e.printStackTrace();
-                return;  // Arrêter si visuel échoue
-            }
-
-            // AJOUT : Insertion en BDD pour UML (après création visuelle réussie)
-            int relationDbId = -1;
-            try {
-                RelationDAO relationDAO = new RelationDAO();
-                relationDbId = relationDAO.insertRelation("Héritage", (Integer) source.get("id"), (Integer) cible.get("id"), cardSource, cardCible, "UML");
-                if (relationDbId == -1) {
-                    System.err.println("ERREUR : Échec de l'insertion de l'héritage UML en base de données.");
-                    // Rollback visuel si échec BDD (supprimer la ligne et textes ajoutés)
-                    if (la != null) {
-                        contentGroup.getChildren().remove(la.ligne);
-                        contentGroup.getChildren().removeAll(la.cardinaliteSourceText, la.cardinaliteCibleText);
-                        lignesAssociees.remove(la);
-                    }
-                    return;  // Ne pas continuer
-                }
-                logDAO.insertLog(userId, "Héritage UML créé en BDD avec ID: " + relationDbId, "INFO");
-                System.out.println("Héritage UML inséré en BDD avec ID: " + relationDbId);
-            } catch (Exception dbEx) {
-                System.err.println("ERREUR insertion UML en BDD : " + dbEx.getMessage());
-                dbEx.printStackTrace();
-                // Rollback visuel en cas d'erreur BDD
-                if (la != null) {
-                    contentGroup.getChildren().remove(la.ligne);
-                    contentGroup.getChildren().removeAll(la.cardinaliteSourceText, la.cardinaliteCibleText);
-                    lignesAssociees.remove(la);
-                }
-                return;
             }
 
         } else {
-            // Bloc ERD (pour typeLien='Relation' ou autre) - MODIFIÉ : Ajout vérification BDD avant insertion existante
+            // Bloc ERD (pour typeLien='Relation' ou autre)
             System.out.println(">>> Entrée dans bloc ERD (typeLien != 'Héritage') <<<");
 
-            // Force le mode ERD si mismatch (sécurité) - code existant
+            // Force le mode ERD si mismatch (sécurité)
             if (isUML) {
                 System.out.println("AVERTISSEMENT : isUML=true mais typeLien indique ERD. Forçage temporaire à ERD.");
                 isUML = false; // Temporaire pour ce traitement ; reset si besoin après
             }
 
-            // MODIFICATION : Vérification d'existence en BDD avant insertion (cohérent avec UML)
-            try {
-                RelationDAO relationDAOCheck = new RelationDAO();
-                // Note : Adaptez si getRelationBySourceId n'existe pas
-                Map<String, Object> existingRel = relationDAOCheck.getRelationBySourceId((Integer) source.get("id"));
-                if (existingRel != null && ((Integer) existingRel.get("entite_cible_id")).equals((Integer) cible.get("id"))) {
-                    System.err.println("ERREUR : Relation ERD existe déjà en BDD. Ignorée.");
-                    return;  // Éviter création si doublon en BDD
-                }
-            } catch (Exception checkEx) {
-                System.err.println("ERREUR vérification existence ERD en BDD : " + checkEx.getMessage());
-                checkEx.printStackTrace();
-                // Optionnel : Continuer sans vérif BDD si échec
-            }
-
-            // Étape 1 : Vérification relation existante (visuelle) - code existant
+            // Étape 1 : Vérification relation existante
             if (relationExiste(source, cible, typeLien)) {
-                System.err.println("ERREUR : Relation ERD existe déjà visuellement. Ignorée.");
+                System.err.println("ERREUR : Relation ERD existe déjà. Ignorée.");
                 return;
             }
 
@@ -475,16 +646,13 @@ public class ZoneModelisation extends Pane {
                     System.err.println("ERREUR : Échec de l'insertion de la relation ERD en base de données.");
                     return; // Ne pas créer la relation visuelle si l'insertion BDD échoue
                 }
-                // MODIFICATION : Ajout log après insertion réussie (cohérent avec UML)
-                logDAO.insertLog(userId, "Relation ERD créée en BDD avec ID: " + relationDbId + " (nom: " + relationNom + ")", "INFO");
-                System.out.println("Relation ERD insérée en BDD avec ID: " + relationDbId);
             } catch (Exception e) {
                 System.err.println("ERREUR lors de l'insertion de la relation ERD en base de données : " + e.getMessage());
                 e.printStackTrace();
                 return;
             }
 
-            // Étape 2 : Création RelationERD - code existant
+            // Étape 2 : Création RelationERD
             RelationERD relationERD = null;
             try {
                 System.out.println("Création de RelationERD...");
@@ -496,7 +664,7 @@ public class ZoneModelisation extends Pane {
                 return;
             }
 
-            // Étape 3 : Récupération et config éléments - code existant
+            // Étape 3 : Récupération et config éléments
             try {
                 Line ligne1 = relationERD.getLigne1();
                 Line ligne2 = relationERD.getLigne2();
@@ -511,7 +679,7 @@ public class ZoneModelisation extends Pane {
                         + ", CardSource null? " + (cardinaliteSourceText == null)
                         + ", CardCible null? " + (cardinaliteCibleText == null));
 
-                // Initialisation si null (exemple) - code existant
+                // Initialisation si null (exemple)
                 if (ligne1 == null) {
                     ligne1 = new Line();
                     ligne1.setStroke(Color.BLACK);
@@ -525,7 +693,7 @@ public class ZoneModelisation extends Pane {
                     ligne2.setVisible(true);
                 }
 
-                // Visibilité forcée - code existant
+                // Visibilité forcée
                 ligne1.setVisible(true);
                 ligne1.setOpacity(1.0);
                 ligne2.setVisible(true);
@@ -552,7 +720,7 @@ public class ZoneModelisation extends Pane {
                 return;
             }
 
-            // Étape 4 : Mise à jour positions - code existant
+            // Étape 4 : Mise à jour positions
             try {
                 System.out.println("Mise à jour positions...");
                 relationERD.mettreAJourPositions();
@@ -563,7 +731,7 @@ public class ZoneModelisation extends Pane {
                 return;
             }
 
-            // Étape 5 : Ajout séquentiel - code existant
+            // Étape 5 : Ajout séquentiel
             System.out.println("Taille avant ajout ERD : " + contentGroup.getChildren().size());
             try {
                 contentGroup.getChildren().add(relationERD.getLigne1());
@@ -679,6 +847,9 @@ public class ZoneModelisation extends Pane {
                     (int) entiteVisuelle.getLayoutX(),
                     (int) entiteVisuelle.getLayoutY()
             );
+
+            // ERIC: SAUVEGARDE DANS L'HISTORIQUE APRÈS DRAG
+            saveToHistory();
         });
 
         // Ajout dans la scène et cache
@@ -729,6 +900,9 @@ public class ZoneModelisation extends Pane {
     }
 
     public void mettreAJourEntite(Map<String, Object> entite) {
+        // ERIC: SAUVEGARDE AVANT MODIFICATION
+        saveToHistory();
+
         Integer entiteId = (Integer) entite.get("id");
         Group oldGroup = entiteToGroup.get(entiteId);
 
@@ -957,6 +1131,9 @@ public class ZoneModelisation extends Pane {
     }
 
     public void supprimerEntite(int entiteId) {
+        //SAUVEGARDE AVANT MODIFICATION
+        saveToHistory();
+
         // Supprimer l'entité des maps
         Map<String, Object> entite = entiteById.remove(entiteId);
         Group group = entiteToGroup.remove(entiteId);
@@ -1000,7 +1177,7 @@ public class ZoneModelisation extends Pane {
 
     }
 
-    // ERIC: AJOUT DES MÉTHODES MANQUANTES POUR NAVIGATIONMENU - DÉBUT
+    //AJOUT DES MÉTHODES MANQUANTES POUR NAVIGATIONMENU
     /**
      * Réinitialise complètement le diagramme
      */
@@ -1012,6 +1189,9 @@ public class ZoneModelisation extends Pane {
         relationsERD.clear();
         loadedSchemaId = -1;
         schemaId = -1;
+        history.clear();
+        currentHistoryIndex = -1;
+        saveToHistory();
     }
 
     /**
@@ -1097,6 +1277,146 @@ public class ZoneModelisation extends Pane {
         }
 
         logDAO.insertLog(userId, "Diagramme chargé depuis fichier", "INFO");
+
+        //SAUVEGARDE DANS L'HISTORIQUE APRÈS CHARGEMENT
+        saveToHistory();
     }
-    // ERIC: AJOUT DES MÉTHODES MANQUANTES POUR NAVIGATIONMENU - FIN
+
+
+    //MÉTHODES POUR GÉRER L'HISTORIQUE - DÉBUT
+    public void saveToHistory() {
+        // Supprimer les états futurs si on ajoute un nouvel état après avoir fait undo
+        if (currentHistoryIndex < history.size() - 1) {
+            history = new ArrayList<>(history.subList(0, currentHistoryIndex + 1));
+        }
+
+        // Créer un snapshot de l'état actuel
+        Map<String, Object> snapshot = new HashMap<>();
+        
+        // Sauvegarder les entités avec leurs positions et attributs
+        List<Map<String, Object>> entitesSnapshot = new ArrayList<>();
+        for (Map<String, Object> entite : entiteById.values()) {
+            Map<String, Object> entiteCopy = new HashMap<>(entite);
+            entitesSnapshot.add(entiteCopy);
+        }
+        snapshot.put("entites", entitesSnapshot);
+        
+        snapshot.put("isUML", isUML);
+        snapshot.put("schemaId", schemaId);
+        
+        // Sauvegarder les relations UML
+        List<Map<String, Object>> relationsSnapshot = new ArrayList<>();
+        for (LigneAssociee ligne : lignesAssociees) {
+            Map<String, Object> relationData = new HashMap<>();
+            relationData.put("sourceId", ligne.e1.get("id"));
+            relationData.put("cibleId", ligne.e2.get("id"));
+            relationData.put("typeLien", ligne.ligne.getStroke().equals(Color.GREEN) ? "Héritage" : "Relation");
+            relationData.put("cardSource", ligne.cardSource);
+            relationData.put("cardCible", ligne.cardCible);
+            relationsSnapshot.add(relationData);
+        }
+        snapshot.put("relations", relationsSnapshot);
+
+        history.add(snapshot);
+        currentHistoryIndex = history.size() - 1;
+
+        // Limiter la taille de l'historique
+        if (history.size() > MAX_HISTORY_SIZE) {
+            history.remove(0);
+            currentHistoryIndex--;
+        }
+
+        System.out.println("Historique sauvegardé. Taille: " + history.size() + ", Index courant: " + currentHistoryIndex);
+    }
+
+    public boolean canUndo() {
+        return currentHistoryIndex > 0;
+    }
+
+    public boolean canRedo() {
+        return currentHistoryIndex < history.size() - 1;
+    }
+
+    public void undo() {
+        if (!canUndo()) {
+            System.out.println("Impossible d'annuler - historique vide ou au début");
+            return;
+        }
+
+        currentHistoryIndex--;
+        restoreFromHistory(currentHistoryIndex);
+        logDAO.insertLog(userId, "Action annulée (Undo)", "INFO");
+    }
+
+    public void redo() {
+        if (!canRedo()) {
+            System.out.println("Impossible de rétablir - historique à la fin");
+            return;
+        }
+
+        currentHistoryIndex++;
+        restoreFromHistory(currentHistoryIndex);
+        logDAO.insertLog(userId, "Action rétablie (Redo)", "INFO");
+    }
+
+    private void restoreFromHistory(int index) {
+        if (index < 0 || index >= history.size()) {
+            System.out.println("Index d'historique invalide: " + index);
+            return;
+        }
+
+        Map<String, Object> snapshot = history.get(index);
+
+        // Nettoyer l'état actuel
+        contentGroup.getChildren().clear();
+        entiteToGroup.clear();
+        entiteById.clear();
+        lignesAssociees.clear();
+        relationsERD.clear();
+
+        // Restaurer le type de schéma
+        Boolean savedIsUML = (Boolean) snapshot.get("isUML");
+        if (savedIsUML != null) {
+            this.isUML = savedIsUML;
+        }
+
+        // Restaurer les entités
+        List<Map<String, Object>> savedEntites = (List<Map<String, Object>>) snapshot.get("entites");
+        if (savedEntites != null) {
+            for (Map<String, Object> entite : savedEntites) {
+                entiteById.put((Integer) entite.get("id"), entite);
+                if (isUML) {
+                    ajouterEntiteUML(entite);
+                } else {
+                    ajouterEntiteERD(entite);
+                }
+            }
+        }
+
+        // Restaurer les relations
+        List<Map<String, Object>> savedRelations = (List<Map<String, Object>>) snapshot.get("relations");
+        if (savedRelations != null) {
+            for (Map<String, Object> relation : savedRelations) {
+                try {
+                    Integer sourceId = (Integer) relation.get("sourceId");
+                    Integer cibleId = (Integer) relation.get("cibleId");
+                    String typeLien = (String) relation.get("typeLien");
+                    String cardSource = (String) relation.get("cardSource");
+                    String cardCible = (String) relation.get("cardCible");
+
+                    Map<String, Object> source = entiteById.get(sourceId);
+                    Map<String, Object> cible = entiteById.get(cibleId);
+
+                    if (source != null && cible != null) {
+                        creerLienEntreEntitesAvecCardinalites(source, cible, typeLien, cardSource, cardCible, "Relation restaurée");
+                    }
+                } catch (Exception e) {
+                    System.err.println("Erreur lors de la restauration d'une relation: " + e.getMessage());
+                }
+            }
+        }
+
+        System.out.println("État restauré depuis l'historique. Index: " + index);
+    }
+
 }
