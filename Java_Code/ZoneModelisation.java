@@ -604,12 +604,31 @@ public class ZoneModelisation extends Pane {
         if (typeLien.equals("Héritage")) {
             // Bloc UML (héritage ou association UML)
             System.out.println(">>> Entrée dans bloc UML (typeLien='Héritage') <<<");
+            
+            // AJOUT : Vérification d'existence en BDD avant insertion (pour éviter doublons)
+            try {
+                RelationDAO relationDAOCheck = new RelationDAO();
+                // Note : Adaptez si getRelationBySourceId n'existe pas ; utilisez une requête personnalisée
+                // Exemple : Map<String, Object> existingRel = relationDAOCheck.getRelationBySourceAndTarget((Integer) source.get("id"), (Integer) cible.get("id"));
+                Map<String, Object> existingRel = relationDAOCheck.getRelationBySourceId((Integer) source.get("id"));
+                if (existingRel != null && ((Integer) existingRel.get("entite_cible_id")).equals((Integer) cible.get("id"))) {
+                    System.err.println("ERREUR : Héritage UML existe déjà en BDD. Ignorée.");
+                    return;  // Éviter création si doublon en BDD
+                }
+            } catch (Exception checkEx) {
+                System.err.println("ERREUR vérification existence UML en BDD : " + checkEx.getMessage());
+                checkEx.printStackTrace();
+                // Optionnel : Continuer sans vérif BDD si échec (mais risqué)
+            }
+
+            // Création visuelle d'abord (code existant, avec try-catch pour isoler)
+            LigneAssociee la = null;  // Pour rollback si besoin
             try {
                 Line ligne = new Line();
                 ligne.setStroke(Color.GREEN); // Vert pour héritage
                 ligne.setStrokeWidth(3);
 
-                LigneAssociee la = new LigneAssociee(ligne, source, cible, cardSource, cardCible);
+                la = new LigneAssociee(ligne, source, cible, cardSource, cardCible);
                 lignesAssociees.add(la);
 
                 la.MajPosition();
@@ -620,6 +639,36 @@ public class ZoneModelisation extends Pane {
             } catch (Exception e) {
                 System.err.println("ERREUR dans bloc UML : " + e.getMessage());
                 e.printStackTrace();
+                return;  // Arrêter si visuel échoue
+            }
+
+            // AJOUT : Insertion en BDD pour UML (après création visuelle réussie)
+            int relationDbId = -1;
+            try {
+                RelationDAO relationDAO = new RelationDAO();
+                relationDbId = relationDAO.insertRelation("Héritage", (Integer) source.get("id"), (Integer) cible.get("id"), cardSource, cardCible, "UML");
+                if (relationDbId == -1) {
+                    System.err.println("ERREUR : Échec de l'insertion de l'héritage UML en base de données.");
+                    // Rollback visuel si échec BDD (supprimer la ligne et textes ajoutés)
+                    if (la != null) {
+                        contentGroup.getChildren().remove(la.ligne);
+                        contentGroup.getChildren().removeAll(la.cardinaliteSourceText, la.cardinaliteCibleText);
+                        lignesAssociees.remove(la);
+                    }
+                    return;  // Ne pas continuer
+                }
+                logDAO.insertLog(userId, "Héritage UML créé en BDD avec ID: " + relationDbId, "INFO");
+                System.out.println("Héritage UML inséré en BDD avec ID: " + relationDbId);
+            } catch (Exception dbEx) {
+                System.err.println("ERREUR insertion UML en BDD : " + dbEx.getMessage());
+                dbEx.printStackTrace();
+                // Rollback visuel en cas d'erreur BDD
+                if (la != null) {
+                    contentGroup.getChildren().remove(la.ligne);
+                    contentGroup.getChildren().removeAll(la.cardinaliteSourceText, la.cardinaliteCibleText);
+                    lignesAssociees.remove(la);
+                }
+                return;
             }
 
         } else {
@@ -631,6 +680,23 @@ public class ZoneModelisation extends Pane {
                 System.out.println("AVERTISSEMENT : isUML=true mais typeLien indique ERD. Forçage temporaire à ERD.");
                 isUML = false; // Temporaire pour ce traitement ; reset si besoin après
             }
+            
+            
+            // MODIFICATION : Vérification d'existence en BDD avant insertion (cohérent avec UML)
+            try {
+                RelationDAO relationDAOCheck = new RelationDAO();
+                // Note : Adaptez si getRelationBySourceId n'existe pas
+                Map<String, Object> existingRel = relationDAOCheck.getRelationBySourceId((Integer) source.get("id"));
+                if (existingRel != null && ((Integer) existingRel.get("entite_cible_id")).equals((Integer) cible.get("id"))) {
+                    System.err.println("ERREUR : Relation ERD existe déjà en BDD. Ignorée.");
+                    return;  // Éviter création si doublon en BDD
+                }
+            } catch (Exception checkEx) {
+                System.err.println("ERREUR vérification existence ERD en BDD : " + checkEx.getMessage());
+                checkEx.printStackTrace();
+                // Optionnel : Continuer sans vérif BDD si échec
+            }
+
 
             // Étape 1 : Vérification relation existante
             if (relationExiste(source, cible, typeLien)) {
@@ -646,6 +712,9 @@ public class ZoneModelisation extends Pane {
                     System.err.println("ERREUR : Échec de l'insertion de la relation ERD en base de données.");
                     return; // Ne pas créer la relation visuelle si l'insertion BDD échoue
                 }
+                // MODIFICATION : Ajout log après insertion réussie (cohérent avec UML)
+                logDAO.insertLog(userId, "Relation ERD créée en BDD avec ID: " + relationDbId + " (nom: " + relationNom + ")", "INFO");
+                System.out.println("Relation ERD insérée en BDD avec ID: " + relationDbId);
             } catch (Exception e) {
                 System.err.println("ERREUR lors de l'insertion de la relation ERD en base de données : " + e.getMessage());
                 e.printStackTrace();
@@ -1253,7 +1322,25 @@ public class ZoneModelisation extends Pane {
                     String type = (String) relation.get("type");
                     int sourceId = (int) relation.get("source_id");
                     int cibleId = (int) relation.get("cible_id");
+                    
+                    boolean belongsToSchema = false;
+		    try (java.sql.Connection conn = ConnexionBdd.getConnection(); java.sql.PreparedStatement pstmt = conn.prepareStatement(
+		            "SELECT COUNT(*) FROM entites WHERE id IN (?, ?) AND schema_id = ?")) {
+		        pstmt.setInt(1, sourceId);
+		        pstmt.setInt(2, cibleId);
+		        pstmt.setInt(3, schemaId);
+		        java.sql.ResultSet rs = pstmt.executeQuery();
+		        if (rs.next() && rs.getInt(1) == 2) {  // Les deux entités doivent être dans le schéma
+		            belongsToSchema = true;
+		        }
+		    } catch (SQLException e) {
+		        logDAO.insertLog(userId, "Erreur vérification schéma pour relation: " + e.getMessage(), "WARNING");
+		    }
 
+		    if (!belongsToSchema) {
+		        continue;  // Ignorer si pas du bon schéma
+
+		    }
                     Map<String, Object> source = entiteById.get(sourceId);
                     Map<String, Object> cible = entiteById.get(cibleId);
 

@@ -374,8 +374,8 @@ public class NavigationMenu {
         aboutAlert.setHeaderText("Générateur UML/ERD/Code");
         aboutAlert.setContentText("Version 1.0\n\n" +
                 "Développé par l'équipe des étudiants de l'IED Paris :\n" +
-                "• Léa  - Développeuse fullstack \n" +
-                "• Lyna - Développeuse fullstack\n" +
+                "• Léa MOULINNEUF - Développeuse fullstack \n" +
+                "• Lyna BOUZEFRANE - Développeuse fullstack\n" +
                 "• Eric NDIKUBWAYO- Développeur fullstack\n\n" +
                 "© 2025 Tous droits réservés");
         
