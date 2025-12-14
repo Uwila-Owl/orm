@@ -83,6 +83,9 @@ public class EntiteDAO {
                 // Supprimer les attributs liés à cette entité
                 attributDAO.supprimerAttributsEntite(entiteId); // Appel à la méthode de AttributDAO
 
+                RelationDAO relationDAO = new RelationDAO();
+                relationDAO.supprimerRelationsEntite(entiteId); // Supprimer les relations liées à cette entité
+
                 pstmt.setInt(1, entiteId);
                 int affectedRows = pstmt.executeUpdate();
 

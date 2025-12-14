@@ -16,14 +16,13 @@ public class PanneauProprietes extends VBox {
     private TextField tfNom;
     private TextField tfNomRelation; // Nouveau champ
     private TextField tfAttrNom;
-    private TextField tfCardSource;
-    private TextField tfCardCible;
     private ToggleGroup tgCle;
     private VBox attrBox;
     private Map<String, Object> entiteCourante;
     private ZoneModelisation zone;
     private ComboBox<String> cbLien;
-    private Button btnCreerLien;
+    private InterfaceGenerateurUML interfaceRef;
+   
     private Button btnAjoutAttr;
     private RadioButton rbPK, rbFK;
     private Button btnSupprimerBloc;
@@ -34,7 +33,7 @@ public class PanneauProprietes extends VBox {
 private Label lblNomBloc;
 private Label lblPK;
 private Label lblFK;
-private Label lblRelation;
+
 
 private VBox attributsBox;   // Zone 2 : liste des attributs
 private TextField tfEditNom;
@@ -42,12 +41,19 @@ private RadioButton rbEditPK;
 private RadioButton rbEditFK;
 private RadioButton rbEditSimple;
 private Button btnAppliquerModif;
+private VBox editBox;
+
+private Label lblZone3;
+// Zone 3 : liste des relations
+private VBox relationBox; // contiendra les relations et leurs boutons
+private RelationDAO relationDAO = new RelationDAO(); // DAO pour manipuler les relations
 
 
     String userId = UserSession.getInstance().getUserId();
 
-    public PanneauProprietes(ZoneModelisation zone) {
+    public PanneauProprietes(ZoneModelisation zone, InterfaceGenerateurUML interfaceRef) {
         this.zone = zone;
+        this.interfaceRef = interfaceRef;
         this.setPadding(new Insets(10));
         this.setSpacing(10);
         this.setPrefWidth(300);
@@ -68,9 +74,9 @@ titreInfo.setStyle("-fx-font-weight: bold; -fx-background-color: #e6e6e6; -fx-pa
 lblNomBloc = new Label("Nom du bloc : ");
 lblPK = new Label("Clé primaire : ");
 lblFK = new Label("Clé étrangère : ");
-lblRelation = new Label("Relation : ");
 
-VBox infoBloc = new VBox(5, titreInfo, lblNomBloc, lblPK, lblFK, lblRelation);
+
+VBox infoBloc = new VBox(5, titreInfo, lblNomBloc, lblPK, lblFK);
 infoBloc.setPadding(new Insets(10));
 infoBloc.setStyle("-fx-background-color: #f4f4f4; -fx-border-color: #ccc; -fx-border-radius: 5;");
 
@@ -118,7 +124,10 @@ rbEditFK.setToggleGroup(tgEdit);
 
 btnAppliquerModif = new Button("Appliquer");
 
-VBox editBox = new VBox(5, new Label("Modifier l'attribut :"), tfEditNom, rbEditPK, rbEditFK, rbEditSimple, btnAppliquerModif);
+editBox = new VBox(5, new Label("Modifier l'attribut :"), tfEditNom, rbEditPK, rbEditFK, rbEditSimple, btnAppliquerModif);
+
+editBox.setVisible(false); // caché par défaut
+editBox.setManaged(false);
 
 
 
@@ -145,53 +154,18 @@ VBox editBox = new VBox(5, new Label("Modifier l'attribut :"), tfEditNom, rbEdit
 
         cbLien = new ComboBox<>();
         cbLien.setPromptText("Sélectionner entité");
+        
+        // --- Zone 3 : Liste des relations de l'entité ---
+lblZone3 = new Label("Relations de l'entité :");
+lblZone3.setStyle("-fx-font-weight: bold; -fx-background-color: #e6e6e6; -fx-padding: 5; -fx-font-size: 12px;");
 
-        // Champs pour la cardinalité
-        tfCardSource = new TextField();
-        tfCardSource.setPromptText("Card. source [x,x]");
+relationBox = new VBox(5);
+relationBox.setPadding(new Insets(5));
+relationBox.setStyle("-fx-background-color: #f9f9f9; -fx-border-color: #ccc; -fx-border-radius: 5;");
 
-        tfCardCible = new TextField();
-        tfCardCible.setPromptText("Card. cible [x,x]");
+        
 
-        btnCreerLien = new Button();
-        btnCreerLien.setOnAction(e -> {
-            String cibleNom = cbLien.getValue();
-            if (cibleNom != null && entiteCourante != null) {
-                Map<String, Object> cible = zone.getEntiteParNom(cibleNom);
-                if (cible != null) {
-                    String typeLien = zone.isUML() ? "Héritage" : "Relation";
-
-                    // Insertion en base via RelationDAO
-                    try {
-                        int entiteSourceId = (int) entiteCourante.get("id");
-                        int entiteCibleId = (int) cible.get("id");
-                        String typeSchema = (String) entiteCourante.get("type_schema");
-
-                        String cardSource = tfCardSource.getText().trim();
-                        String cardCible = tfCardCible.getText().trim();
-
-                        RelationDAO relationDAO = new RelationDAO();
-                        int relationId = relationDAO.insertRelation(
-                                typeLien,
-                                entiteSourceId,
-                                entiteCibleId,
-                                cardSource,
-                                cardCible,
-                                typeSchema
-                        );
-
-                        logDAO.insertLog(userId, "Relation créée en BDD avec ID = " + relationId, "INFO");
-                        zone.creerLienEntreEntites(entiteCourante, cible, typeLien);
-
-                    } catch (Exception ex) {
-                        logDAO.insertLog(userId, "Erreur lors de la création de la relation : " + ex.getMessage(), "SEVERE");
-                    }
-                }
-            }
-        });
-
-        HBox lienBox = new HBox(5, cbLien, btnCreerLien);
-        VBox cardBox = new VBox(5, new Label("Cardinalités :"), tfCardSource, tfCardCible);
+       
         
         
 
@@ -210,23 +184,100 @@ btnSupprimerBloc.setOnAction(e -> {
         attrBox.getChildren().clear();
         rbPK.setSelected(false);
         rbFK.setSelected(false);
-        tfCardSource.clear();
-        tfCardCible.clear();
+        
 
         // Réinitialisation des labels Info Bloc
         lblNomBloc.setText("Nom du bloc : ");
         lblPK.setText("Clé primaire : ");
         lblFK.setText("Clé étrangère : ");
-        lblRelation.setText("Relation : ");
+      
     }
 });
+
+// Initialiser la visibilité selon le mode courant
+updateVisibility();
+
+// Écouter les changements UML/ERD
+setupVisibilityListeners();
 
 
 
 
         // Ajout des éléments dans l'ordre, avec Nom relation avant la liste des attributs
-        this.getChildren().addAll(lblNom, tfNom, lblNomRelation, tfNomRelation, lblZone2, attributsBox, editBox, lblAttr, attrInput, btnAjoutAttr, cardBox, lienBox, btnSupprimerBloc);
+        this.getChildren().addAll(lblNom, tfNom, lblNomRelation, tfNomRelation, lblZone2, attributsBox, editBox, lblAttr, attrInput, btnAjoutAttr, lblZone3, relationBox, btnSupprimerBloc);
     }
+    
+   
+private void setupVisibilityListeners() {
+    if (interfaceRef.getBtnUML() != null) {
+        interfaceRef.getBtnUML().selectedProperty().addListener((obs, oldVal, newVal) -> updateVisibility());
+    }
+    if (interfaceRef.getBtnERD() != null) {
+        interfaceRef.getBtnERD().selectedProperty().addListener((obs, oldVal, newVal) -> updateVisibility());
+    }
+}
+
+private void updateVisibility() {
+    if (lblZone3 != null && relationBox != null && interfaceRef != null) {
+        boolean isERDSelected = interfaceRef.getBtnERD() != null && interfaceRef.getBtnERD().isSelected();
+
+        lblZone3.setVisible(isERDSelected);
+        lblZone3.setManaged(isERDSelected);
+        relationBox.setVisible(isERDSelected);
+        relationBox.setManaged(isERDSelected);
+    }
+}
+
+
+    private void afficherRelations(int entiteSourceId) {
+    relationBox.getChildren().clear();
+
+    List<Map<String, Object>> relations = relationDAO.getAllRelations();
+    for (Map<String, Object> rel : relations) {
+        int relId = (int) rel.get("id");
+        int srcId = (int) rel.get("entite_source_id");
+
+        if (srcId != entiteSourceId) continue;
+
+        String nom = (String) rel.get("nom");
+        String srcCard = (String) rel.get("cardinalite_source");
+        String dstCard = (String) rel.get("cardinalite_cible");
+
+        Label lblNomRel = new Label("Relation : " + nom);
+        lblNomRel.setStyle("-fx-font-weight: bold;");
+
+        TextField tfSrc = new TextField(srcCard);
+        tfSrc.setPrefWidth(50);
+
+        TextField tfDst = new TextField(dstCard);
+        tfDst.setPrefWidth(50);
+
+        Button btnSave = new Button("✔");
+        btnSave.setOnAction(e -> {
+            String newSrc = tfSrc.getText().trim();
+            String newDst = tfDst.getText().trim();
+            relationDAO.updateRelation(relId, nom, newSrc, newDst);
+            
+        });
+
+        Button btnDel = new Button("✘");
+        btnDel.setOnAction(e -> {
+            relationDAO.supprimerRelation(relId);
+            
+            afficherRelations(entiteSourceId);
+        });
+
+        HBox cardBox = new HBox(5, new Label("Source:"), tfSrc, new Label("Cible:"), tfDst);
+        HBox actionBox = new HBox(5, btnSave, btnDel);
+
+        VBox relationBloc = new VBox(5, lblNomRel, cardBox, actionBox);
+        relationBloc.setPadding(new Insets(5));
+        relationBloc.setStyle("-fx-background-color: #f1f1f1; -fx-border-color: #ccc; -fx-border-radius: 5;");
+
+        relationBox.getChildren().add(relationBloc);
+    }
+}
+
 
     public void remplirPanneau(Map<String, Object> entite) {
         this.entiteCourante = entite;
@@ -252,9 +303,7 @@ lblPK.setText("Clé primaire : " + (pk.isEmpty() ? "Aucune" : pk));
 lblFK.setText("Clé étrangère : " + (fk.isEmpty() ? "Aucune" : fk));
 
 
-// Nom relation
-String relationNom = (String) entite.getOrDefault("nom_relation", "");
-lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relationNom));
+
 
 
         tfNom.setText((String) entite.get("nom"));
@@ -264,8 +313,7 @@ lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relation
 
         attrBox.getChildren().clear();
 
-        tfCardSource.clear();
-        tfCardCible.clear();
+        
 
         // Récupérer cardinalités depuis la BDD si relation existe
         if (entiteCourante.containsKey("id")) {
@@ -273,10 +321,7 @@ lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relation
             RelationDAO relationDAO = new RelationDAO();
             Map<String, Object> relation = relationDAO.getRelationBySourceId(entiteSourceId);
 
-            if (relation != null) {
-                tfCardSource.setText((String) relation.get("cardinalite_source"));
-                tfCardCible.setText((String) relation.get("cardinalite_cible"));
-            }
+            
         }
 
         
@@ -284,15 +329,25 @@ lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relation
         List<String> autresEntites = zone.getNomsEntitesExcluant(entite);
         cbLien.setItems(FXCollections.observableArrayList(autresEntites));
 
-        if (zone.isUML()) {
-            btnCreerLien.setText("Créer Héritage");
-            cbLien.setPromptText("Héritage vers...");
-        } else {
-            btnCreerLien.setText("Créer Relation");
-            cbLien.setPromptText("Relation vers...");
-        }
+        
         mettreAJourAttributs();
+        // Afficher les relations pour l'entité sélectionnée
+if (entiteCourante.containsKey("id")) {
+    if (zone.isUML()) {
+        relationBox.setVisible(false);
+    } else {
+        relationBox.setVisible(true);
+        int entiteSourceId = (int) entiteCourante.get("id");
+        afficherRelations(entiteSourceId);
     }
+}
+if (editBox != null) {
+    editBox.setVisible(false);
+    editBox.setManaged(false);
+}
+}
+
+ 
     
     private void mettreAJourAttributs() {
     attributsBox.getChildren().clear();
@@ -312,6 +367,8 @@ lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relation
 
             // Action Modifier
             btnEdit.setOnAction(e -> {
+            editBox.setVisible(true);
+            editBox.setManaged(true);
                 tfEditNom.setText((String) attr.get("nom"));
          
                 rbEditPK.setSelected((boolean) attr.getOrDefault("cle_primaire", false));
@@ -332,6 +389,8 @@ lblRelation.setText("Relation : " + (relationNom.isEmpty() ? "Aucune" : relation
 
                     zone.mettreAJourEntite(entiteCourante);
                     mettreAJourAttributs(); // rafraîchir la liste
+                    editBox.setVisible(false); 
+                    editBox.setManaged(false);
                 });
             });
 
