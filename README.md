@@ -65,13 +65,25 @@ Cette application permet de créer des diagrammes **UML** et **ERD** de manière
 ### Sous Linux
 1. Placez-vous dans le dossier contenant `menu.sh`.
 2. Rendez le script exécutable :  
-   ```bash
-   chmod +x menu.sh
+   `bash`
+   `chmod +x menu.sh`
+3. Lancez l’application :
+   
+    `./menu.sh`
 
+    En cas d’erreur, vérifiez la présence des bibliothèques JavaFX et l’intégrité du fichier config.properties.
+
+### Sous Windows
+
+1. Ouvrez l’invite de commandes dans le dossier contenant menu.bat.
+2. Lancez l’application :
+
+   `menu.bat`
 
     Si des erreurs surviennent, exécutez d’abord setup_config.ps1 (PowerShell) pour initialiser les configurations, puis relancez menu.bat.
 
     Assurez-vous que la variable d’environnement JAVA_HOME est correctement définie.
+
 
 Utilisation de l’application
 1. Création d’un compte
@@ -119,3 +131,4 @@ Notes supplémentaires
     ProGuard : le dossier Proguard70 contient les outils pour obfusquer le code avant distribution.
 
     Dépannage : si le programme ne se lance pas, vérifiez les logs de la base de données ou contactez les auteurs.
+
